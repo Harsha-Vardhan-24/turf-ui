@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import ImageWithBasePath from "../../core/data/img/ImageWithBasePath";
 import { Dropdown } from "primereact/dropdown";
@@ -10,6 +10,7 @@ import { all_routes } from "../router/all_routes";
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import moment from "moment";
 
 const daysOfWeek = [
   { id: 1, label: "Mon" },
@@ -44,80 +45,71 @@ const AddCourt = () => {
     formState: { errors },
   } = useForm();
 
-  const [mondaySelectedHours, setMondaySelectedHours] = useState<{
-    duration: string;
-    startTime: any;
-    endTime: any;
-  }>({
-    duration: "",
-    startTime: null,
-    endTime: null,
-  });
-
-  const [tuesdaySelectedHours, setTuesdaySelectedHours] = useState<{
-    duration: string;
-    startTime: any;
-    endTime: any;
-  }>({
-    duration: "",
-    startTime: null,
-    endTime: null,
-  });
-
-  const [wednesdaySelectedHours, setWednesdaySelectedHours] = useState<{
-    duration: string;
-    startTime: any;
-    endTime: any;
-  }>({
-    duration: "",
-    startTime: null,
-    endTime: null,
-  });
-
-  const [thursdaySelectedHours, setThursdaySelectedHours] = useState<{
-    duration: string;
-    startTime: any;
-    endTime: any;
-  }>({
-    duration: "",
-    startTime: null,
-    endTime: null,
-  });
-
-  const [fridaySelectedHours, setFridaySelectedHours] = useState<{
-    duration: string;
-    startTime: any;
-    endTime: any;
-  }>({
-    duration: "",
-    startTime: null,
-    endTime: null,
-  });
-
-  const [saturdaySelectedHours, setSaturdaySelectedHours] = useState<{
-    duration: string;
-    startTime: any;
-    endTime: any;
-  }>({
-    duration: "",
-    startTime: null,
-    endTime: null,
-  });
-
-  const [sundaySelectedHours, setSundaySelectedHours] = useState<{
-    duration: string;
-    startTime: any;
-    endTime: any;
-  }>({
-    duration: "",
-    startTime: null,
-    endTime: null,
+  const [selectedHours, setSelectedHours] = useState<any>({
+    monday: { duration: "", startTime: null, endTime: null },
+    tuesday: { duration: "", startTime: null, endTime: null },
+    wednesday: { duration: "", startTime: null, endTime: null },
+    thursday: { duration: "", startTime: null, endTime: null },
+    friday: { duration: "", startTime: null, endTime: null },
+    saturday: { duration: "", startTime: null, endTime: null },
+    sunday: { duration: "", startTime: null, endTime: null },
   });
 
   const [images, setImages] = useState<any>([]);
 
+  // State to store calculated time slots for each day
+  const [timeSlots, setTimeSlots] = useState<{ [key: string]: string[] }>({
+    monday: [],
+    tuesday: [],
+    wednesday: [],
+    thursday: [],
+    friday: [],
+    saturday: [],
+    sunday: [],
+  });
+  console.log(timeSlots);
+
+  // Function to calculate time slots dynamically based on the day
+  const calculateTimeSlots = (day: string) => {
+    const slots: string[] = [];
+    const dayHours = selectedHours[day];
+
+    if (
+      !dayHours ||
+      !dayHours.duration ||
+      !dayHours.startTime ||
+      !dayHours.endTime
+    ) {
+      return; // Don't calculate if any value is missing
+    }
+
+    const durationInMinutes = parseInt(dayHours.duration.split(" ")[0]) * 60; // convert "1 Hrs" to 60 minutes
+    let currentTime = moment(dayHours.startTime, "HH:mm");
+    const endTime = moment(dayHours.endTime, "HH:mm");
+
+    while (currentTime.isBefore(endTime)) {
+      slots.push(currentTime.format("HH:mm A")); // e.g., "06:00 AM"
+      currentTime = currentTime.add(durationInMinutes, "minutes"); // move to next slot
+    }
+
+    setTimeSlots((prevState) => ({ ...prevState, [day]: slots })); // update the time slots for the specific day
+  };
+
+  // useEffect to recalculate time slots whenever selectedHours changes
+  useEffect(() => {
+    // Loop through all days and calculate slots
+    Object.keys(selectedHours).forEach((day) => {
+      calculateTimeSlots(day);
+    });
+  }, [selectedHours]);
+
   const onSubmit = (data: any) => {
-    const courtData = { ...data, courtImages: images, courtAvailability: "" };
+    const courtData = {
+      ...data,
+      courtImages: images,
+      courtAvailability: selectedHours,
+      courtTimeSlots: timeSlots,
+    };
     console.log(courtData);
   };
 
@@ -134,76 +126,36 @@ const AddCourt = () => {
     setSelectedDays(updatedDays);
   };
 
-  // Watch the 'venueOverView' field for changes
   const venueOverView = watch("venueOverView");
 
   const handleQuillChange = (value: string) => {
-    // Manually register the Quill value to react-hook-form
     setValue("venueOverView", value);
   };
 
   const rulesOfVenue = watch("rulesOfVenue");
 
   const handleRulesChange = (value: string) => {
-    // Manually register the Quill value to react-hook-form
     setValue("rulesOfVenue", value);
   };
 
   dayjs.extend(customParseFormat);
+
+  const updateDayHours = (day: string | number, field: string, value: any) => {
+    setSelectedHours((prevState: any) => ({
+      ...prevState,
+      [day]: {
+        ...prevState[day],
+        [field]: value,
+      },
+    }));
+  };
 
   const handleStartTimeChange = (
     day: string,
     time: Dayjs,
     timeString: string | string[]
   ) => {
-    switch (day) {
-      case "Monday":
-        setMondaySelectedHours((prevState) => ({
-          ...prevState,
-          startTime: timeString,
-        }));
-        break;
-      case "Tuesday":
-        setTuesdaySelectedHours((prevState) => ({
-          ...prevState,
-          startTime: timeString,
-        }));
-        break;
-      case "Wednesday":
-        setWednesdaySelectedHours((prevState) => ({
-          ...prevState,
-          startTime: timeString,
-        }));
-        break;
-      case "Thursday":
-        setThursdaySelectedHours((prevState) => ({
-          ...prevState,
-          startTime: timeString,
-        }));
-        break;
-      case "Friday":
-        setFridaySelectedHours((prevState) => ({
-          ...prevState,
-          startTime: timeString,
-        }));
-        break;
-      case "Saturday":
-        setSaturdaySelectedHours((prevState) => ({
-          ...prevState,
-          startTime: timeString,
-        }));
-        break;
-      case "Sunday":
-        setSundaySelectedHours((prevState) => ({
-          ...prevState,
-          startTime: timeString,
-        }));
-        break;
-      // Add cases for other days as needed
-      default:
-        console.warn("Invalid day selected");
-        break;
-    }
+    updateDayHours(day.toLowerCase(), "startTime", timeString);
   };
 
   const handleEndTimeChange = (
@@ -211,53 +163,7 @@ const AddCourt = () => {
     time: Dayjs,
     timeString: string | string[]
   ) => {
-    switch (day) {
-      case "Monday":
-        setMondaySelectedHours((prevState) => ({
-          ...prevState,
-          endTime: timeString,
-        }));
-        break;
-      case "Tuesday":
-        setTuesdaySelectedHours((prevState) => ({
-          ...prevState,
-          endTime: timeString,
-        }));
-        break;
-      case "Wednesday":
-        setWednesdaySelectedHours((prevState) => ({
-          ...prevState,
-          endTime: timeString,
-        }));
-        break;
-      case "Thursday":
-        setThursdaySelectedHours((prevState) => ({
-          ...prevState,
-          endTime: timeString,
-        }));
-        break;
-      case "Friday":
-        setFridaySelectedHours((prevState) => ({
-          ...prevState,
-          endTime: timeString,
-        }));
-        break;
-      case "Saturday":
-        setSaturdaySelectedHours((prevState) => ({
-          ...prevState,
-          endTime: timeString,
-        }));
-        break;
-      case "Sunday":
-        setSundaySelectedHours((prevState) => ({
-          ...prevState,
-          endTime: timeString,
-        }));
-        break;
-      default:
-        console.warn("Invalid day selected");
-        break;
-    }
+    updateDayHours(day.toLowerCase(), "endTime", timeString);
   };
 
   const scrollContent = (id: string) => {
@@ -283,7 +189,7 @@ const AddCourt = () => {
   };
 
   // Function to remove an image
-  const removeImg = (index: number) => {
+  const removeImg = (index: any) => {
     setImages(images.filter((_: any, i: number) => i !== index));
   };
 
@@ -463,7 +369,7 @@ const AddCourt = () => {
                               Starting Price (Per Hour)
                             </label>
                             <input
-                              {...register("startingPrice")}
+                              {...register("venuePrice.startingPrice")}
                               type="text"
                               className="form-control"
                               id="starting-price"
@@ -477,7 +383,7 @@ const AddCourt = () => {
                               Max Guests
                             </label>
                             <input
-                              {...register("maxGuests")}
+                              {...register("venuePrice.maxGuests")}
                               type="text"
                               className="form-control"
                               id="max-guests"
@@ -494,7 +400,7 @@ const AddCourt = () => {
                               Additional Guests
                             </label>
                             <input
-                              {...register("additionalGuests")}
+                              {...register("venuePrice.additionalGuests")}
                               type="text"
                               className="form-control"
                               id="additional-guests"
@@ -508,7 +414,9 @@ const AddCourt = () => {
                               Price of Extra Guest (Per Hour)
                             </label>
                             <input
-                              {...register("priceOfAdditionalGuests")}
+                              {...register(
+                                "venuePrice.priceOfAdditionalGuests"
+                              )}
                               type="text"
                               className="form-control"
                               id="name"
@@ -617,13 +525,14 @@ const AddCourt = () => {
                                             </span>
                                           </label>
                                           <Dropdown
-                                            value={mondaySelectedHours.duration}
+                                            value={
+                                              selectedHours.monday.duration
+                                            }
                                             onChange={(e) =>
-                                              setMondaySelectedHours(
-                                                (prevState) => ({
-                                                  ...prevState,
-                                                  duration: e.target.value,
-                                                })
+                                              updateDayHours(
+                                                "monday",
+                                                "duration",
+                                                e.target.value
                                               )
                                             }
                                             options={hoursOptions}
@@ -633,6 +542,7 @@ const AddCourt = () => {
                                           />
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -661,6 +571,7 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -692,22 +603,29 @@ const AddCourt = () => {
                                       <div className="col-md-12">
                                         <h4>Available Timings</h4>
                                         <div className="token-slot mt-2">
-                                          <div className="form-check-inline visits me-1">
-                                            <label className="visit-btns">
-                                              <input
-                                                type="checkbox"
-                                                className="form-check-input"
-                                                defaultValue={18}
-                                              />
-                                              <span
-                                                className="visit-rsn"
-                                                data-bs-toggle="tooltip"
-                                                title="06:00 AM"
+                                          {timeSlots["monday"]?.map(
+                                            (slot, index) => (
+                                              <div
+                                                className="form-check-inline visits me-1"
+                                                key={index}
                                               >
-                                                06:00 AM
-                                              </span>
-                                            </label>
-                                          </div>
+                                                <label className="visit-btns">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    value={slot}
+                                                  />
+                                                  <span
+                                                    className="visit-rsn"
+                                                    data-bs-toggle="tooltip"
+                                                    title={slot}
+                                                  >
+                                                    {slot}
+                                                  </span>
+                                                </label>
+                                              </div>
+                                            )
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -767,14 +685,13 @@ const AddCourt = () => {
                                           </label>
                                           <Dropdown
                                             value={
-                                              tuesdaySelectedHours.duration
+                                              selectedHours.tuesday.duration
                                             }
                                             onChange={(e) =>
-                                              setTuesdaySelectedHours(
-                                                (prevState) => ({
-                                                  ...prevState,
-                                                  duration: e.target.value,
-                                                })
+                                              updateDayHours(
+                                                "tuesday",
+                                                "duration",
+                                                e.target.value
                                               )
                                             }
                                             options={hoursOptions}
@@ -784,6 +701,7 @@ const AddCourt = () => {
                                           />
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -812,6 +730,7 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -840,25 +759,33 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-12">
                                         <h4>Available Timings</h4>
                                         <div className="token-slot mt-2">
-                                          <div className="form-check-inline visits me-1">
-                                            <label className="visit-btns">
-                                              <input
-                                                type="checkbox"
-                                                className="form-check-input"
-                                                defaultValue={18}
-                                              />
-                                              <span
-                                                className="visit-rsn"
-                                                data-bs-toggle="tooltip"
-                                                title="06:00 AM"
+                                          {timeSlots["tuesday"]?.map(
+                                            (slot, index) => (
+                                              <div
+                                                className="form-check-inline visits me-1"
+                                                key={index}
                                               >
-                                                06:00 AM
-                                              </span>
-                                            </label>
-                                          </div>
+                                                <label className="visit-btns">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    value={slot}
+                                                  />
+                                                  <span
+                                                    className="visit-rsn"
+                                                    data-bs-toggle="tooltip"
+                                                    title={slot}
+                                                  >
+                                                    {slot}
+                                                  </span>
+                                                </label>
+                                              </div>
+                                            )
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -917,14 +844,13 @@ const AddCourt = () => {
                                           </label>
                                           <Dropdown
                                             value={
-                                              wednesdaySelectedHours.duration
+                                              selectedHours.wednesday.duration
                                             }
                                             onChange={(e) =>
-                                              setWednesdaySelectedHours(
-                                                (prevState) => ({
-                                                  ...prevState,
-                                                  duration: e.target.value,
-                                                })
+                                              updateDayHours(
+                                                "wednesday",
+                                                "duration",
+                                                e.target.value
                                               )
                                             }
                                             options={hoursOptions}
@@ -934,6 +860,7 @@ const AddCourt = () => {
                                           />
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -962,6 +889,7 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -990,25 +918,33 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-12">
                                         <h4>Available Timings</h4>
                                         <div className="token-slot mt-2">
-                                          <div className="form-check-inline visits me-1">
-                                            <label className="visit-btns">
-                                              <input
-                                                type="checkbox"
-                                                className="form-check-input"
-                                                defaultValue={18}
-                                              />
-                                              <span
-                                                className="visit-rsn"
-                                                data-bs-toggle="tooltip"
-                                                title="06:00 AM"
+                                          {timeSlots["wednesday"]?.map(
+                                            (slot, index) => (
+                                              <div
+                                                className="form-check-inline visits me-1"
+                                                key={index}
                                               >
-                                                06:00 AM
-                                              </span>
-                                            </label>
-                                          </div>
+                                                <label className="visit-btns">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    value={slot}
+                                                  />
+                                                  <span
+                                                    className="visit-rsn"
+                                                    data-bs-toggle="tooltip"
+                                                    title={slot}
+                                                  >
+                                                    {slot}
+                                                  </span>
+                                                </label>
+                                              </div>
+                                            )
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -1067,14 +1003,13 @@ const AddCourt = () => {
                                           </label>
                                           <Dropdown
                                             value={
-                                              thursdaySelectedHours.duration
+                                              selectedHours.thursday.duration
                                             }
                                             onChange={(e) =>
-                                              setThursdaySelectedHours(
-                                                (prevState) => ({
-                                                  ...prevState,
-                                                  duration: e.target.value,
-                                                })
+                                              updateDayHours(
+                                                "thursday",
+                                                "duration",
+                                                e.target.value
                                               )
                                             }
                                             options={hoursOptions}
@@ -1084,6 +1019,7 @@ const AddCourt = () => {
                                           />
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -1112,6 +1048,7 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -1140,25 +1077,33 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-12">
                                         <h4>Available Timings</h4>
                                         <div className="token-slot mt-2">
-                                          <div className="form-check-inline visits me-1">
-                                            <label className="visit-btns">
-                                              <input
-                                                type="checkbox"
-                                                className="form-check-input"
-                                                defaultValue={18}
-                                              />
-                                              <span
-                                                className="visit-rsn"
-                                                data-bs-toggle="tooltip"
-                                                title="06:00 AM"
+                                          {timeSlots["thursday"]?.map(
+                                            (slot, index) => (
+                                              <div
+                                                className="form-check-inline visits me-1"
+                                                key={index}
                                               >
-                                                06:00 AM
-                                              </span>
-                                            </label>
-                                          </div>
+                                                <label className="visit-btns">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    value={slot}
+                                                  />
+                                                  <span
+                                                    className="visit-rsn"
+                                                    data-bs-toggle="tooltip"
+                                                    title={slot}
+                                                  >
+                                                    {slot}
+                                                  </span>
+                                                </label>
+                                              </div>
+                                            )
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -1214,13 +1159,14 @@ const AddCourt = () => {
                                             </span>
                                           </label>
                                           <Dropdown
-                                            value={fridaySelectedHours.duration}
+                                            value={
+                                              selectedHours.friday.duration
+                                            }
                                             onChange={(e) =>
-                                              setFridaySelectedHours(
-                                                (prevState) => ({
-                                                  ...prevState,
-                                                  duration: e.target.value,
-                                                })
+                                              updateDayHours(
+                                                "friday",
+                                                "duration",
+                                                e.target.value
                                               )
                                             }
                                             options={hoursOptions}
@@ -1230,6 +1176,7 @@ const AddCourt = () => {
                                           />
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -1258,6 +1205,7 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -1286,25 +1234,33 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-12">
                                         <h4>Available Timings</h4>
                                         <div className="token-slot mt-2">
-                                          <div className="form-check-inline visits me-1">
-                                            <label className="visit-btns">
-                                              <input
-                                                type="checkbox"
-                                                className="form-check-input"
-                                                defaultValue={18}
-                                              />
-                                              <span
-                                                className="visit-rsn"
-                                                data-bs-toggle="tooltip"
-                                                title="06:00 AM"
+                                          {timeSlots["friday"]?.map(
+                                            (slot, index) => (
+                                              <div
+                                                className="form-check-inline visits me-1"
+                                                key={index}
                                               >
-                                                06:00 AM
-                                              </span>
-                                            </label>
-                                          </div>
+                                                <label className="visit-btns">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    value={slot}
+                                                  />
+                                                  <span
+                                                    className="visit-rsn"
+                                                    data-bs-toggle="tooltip"
+                                                    title={slot}
+                                                  >
+                                                    {slot}
+                                                  </span>
+                                                </label>
+                                              </div>
+                                            )
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -1363,14 +1319,13 @@ const AddCourt = () => {
                                           </label>
                                           <Dropdown
                                             value={
-                                              saturdaySelectedHours.duration
+                                              selectedHours.saturday.duration
                                             }
                                             onChange={(e) =>
-                                              setSaturdaySelectedHours(
-                                                (prevState) => ({
-                                                  ...prevState,
-                                                  duration: e.target.value,
-                                                })
+                                              updateDayHours(
+                                                "saturday",
+                                                "duration",
+                                                e.target.value
                                               )
                                             }
                                             options={hoursOptions}
@@ -1380,6 +1335,7 @@ const AddCourt = () => {
                                           />
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -1408,6 +1364,7 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -1436,25 +1393,33 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-12">
                                         <h4>Available Timings</h4>
                                         <div className="token-slot mt-2">
-                                          <div className="form-check-inline visits me-1">
-                                            <label className="visit-btns">
-                                              <input
-                                                type="checkbox"
-                                                className="form-check-input"
-                                                defaultValue={18}
-                                              />
-                                              <span
-                                                className="visit-rsn"
-                                                data-bs-toggle="tooltip"
-                                                title="06:00 AM"
+                                          {timeSlots["saturday"]?.map(
+                                            (slot, index) => (
+                                              <div
+                                                className="form-check-inline visits me-1"
+                                                key={index}
                                               >
-                                                06:00 AM
-                                              </span>
-                                            </label>
-                                          </div>
+                                                <label className="visit-btns">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    value={slot}
+                                                  />
+                                                  <span
+                                                    className="visit-rsn"
+                                                    data-bs-toggle="tooltip"
+                                                    title={slot}
+                                                  >
+                                                    {slot}
+                                                  </span>
+                                                </label>
+                                              </div>
+                                            )
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -1510,13 +1475,14 @@ const AddCourt = () => {
                                             </span>
                                           </label>
                                           <Dropdown
-                                            value={sundaySelectedHours.duration}
+                                            value={
+                                              selectedHours.sunday.duration
+                                            }
                                             onChange={(e) =>
-                                              setSundaySelectedHours(
-                                                (prevState) => ({
-                                                  ...prevState,
-                                                  duration: e.target.value,
-                                                })
+                                              updateDayHours(
+                                                "sunday",
+                                                "duration",
+                                                e.target.value
                                               )
                                             }
                                             options={hoursOptions}
@@ -1526,6 +1492,7 @@ const AddCourt = () => {
                                           />
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -1554,6 +1521,7 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-3">
                                         <div className="duration-blk">
                                           <label className="form-control-label">
@@ -1582,25 +1550,33 @@ const AddCourt = () => {
                                           </div>
                                         </div>
                                       </div>
+
                                       <div className="col-md-12">
                                         <h4>Available Timings</h4>
                                         <div className="token-slot mt-2">
-                                          <div className="form-check-inline visits me-1">
-                                            <label className="visit-btns">
-                                              <input
-                                                type="checkbox"
-                                                className="form-check-input"
-                                                defaultValue={18}
-                                              />
-                                              <span
-                                                className="visit-rsn"
-                                                data-bs-toggle="tooltip"
-                                                title="06:00 AM"
+                                          {timeSlots["sunday"]?.map(
+                                            (slot, index) => (
+                                              <div
+                                                className="form-check-inline visits me-1"
+                                                key={index}
                                               >
-                                                06:00 AM
-                                              </span>
-                                            </label>
-                                          </div>
+                                                <label className="visit-btns">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    value={slot}
+                                                  />
+                                                  <span
+                                                    className="visit-rsn"
+                                                    data-bs-toggle="tooltip"
+                                                    title={slot}
+                                                  >
+                                                    {slot}
+                                                  </span>
+                                                </label>
+                                              </div>
+                                            )
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -2033,26 +2009,31 @@ const AddCourt = () => {
                                   multiple
                                   onChange={handleFileChange}
                                 />
-                                <p>Upload Coaching Gallery</p>
+                                <p>Upload Court Images</p>
                               </div>
                             </div>
                             <div className="upload-show-img">
-                              {images.map((imgSrc, index) => (
-                                <div key={index} className="upload-images">
-                                  <img
-                                    src={imgSrc}
-                                    alt={`Preview ${index}`}
-                                    className="img-fluid"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => removeImg(index)}
-                                    className="btn btn-icon btn-sm"
-                                  >
-                                    <i className="far fa-trash-alt" />
-                                  </button>
-                                </div>
-                              ))}
+                              {images.map(
+                                (
+                                  imgSrc: string | undefined,
+                                  index: React.Key | null | undefined
+                                ) => (
+                                  <div key={index} className="upload-images">
+                                    <img
+                                      src={imgSrc}
+                                      alt={`Preview ${index}`}
+                                      className="img-fluid"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeImg(index)}
+                                      className="btn btn-icon btn-sm"
+                                    >
+                                      <i className="far fa-trash-alt" />
+                                    </button>
+                                  </div>
+                                )
+                              )}
                             </div>
                             <h5>
                               Put the main picture as the first Image <br />

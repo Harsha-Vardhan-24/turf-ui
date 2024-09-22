@@ -209,6 +209,10 @@ const EditCourt = () => {
   const onSubmit = async (data: any) => {
     setLoading(true);
 
+    if (data.location && data.location.city) {
+      data.location.city = data.location.city.toLowerCase().trim();
+    }
+
     const formData = new FormData();
     images.forEach((image: { file: string | Blob }) => {
       formData.append("files", image.file);

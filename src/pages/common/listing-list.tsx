@@ -4,8 +4,8 @@ import ImageWithBasePath from "../../core/data/img/ImageWithBasePath";
 import { Dropdown } from "primereact/dropdown";
 import { all_routes } from "../../router/all_routes";
 import Loader from "../../components/common/Loader";
-import { citiesData } from "../../utils/citiesList";
-import { useForm } from "react-hook-form";
+import { citiesList } from "../../utils/citiesList";
+import { Controller, useForm } from "react-hook-form";
 import axios from "axios";
 import { arrayBuffer } from "stream/consumers";
 
@@ -25,6 +25,7 @@ const ListingList = () => {
     register,
     handleSubmit,
     watch,
+    control,
     formState: { errors },
   } = useForm<Inputs>();
   const routes = all_routes;
@@ -32,10 +33,16 @@ const ListingList = () => {
   const [userLocation, setUserLocation] = useState<string>();
   const [loading, setLoading] = useState<boolean>(false);
   const [courtsData, setCourtsData] = useState<CourtsData[]>([]);
+  const [locations, setLocations] = useState([]);
   const [images, setImages] = useState<string[]>();
   const [selectedSort, setSelectedSort] = useState<any>(sortOptions[0].name);
 
   useEffect(() => {
+    const getCitiesData = async () => {
+      const fetchedLocations = await citiesList();
+      setLocations(fetchedLocations);
+    };
+    getCitiesData();
     setCourtsData((prevData) => {
       const sortedData = [...prevData];
       const sortOption = selectedSort.name;
@@ -122,20 +129,25 @@ const ListingList = () => {
   const LocationComponent = () => (
     <div className="d-flex justify-content-center align-items-center bg-light">
       <form
-        className="col-lg-6 col-md-6"
+        className="col-lg-4 col-md-4"
         onSubmit={handleSubmit(SubmitHandler)}
       >
         <label htmlFor="userLocation" className="form-label">
           Location
         </label>
-        <input
-          type="text"
-          className="form-control"
-          id="userLocation"
-          placeholder="Enter your Location"
-          {...register("userLocation", {
-            required: "User location is required",
-          })}
+        <Controller
+          name="userLocation"
+          control={control}
+          rules={{ required: "Location required" }}
+          render={({ field }) => (
+            <Dropdown
+              value={field.value} // Since courtOptions is now an array of strings
+              onChange={(e) => field.onChange(e.value)} // Directly update the selected value
+              options={locations} // Pass the array of strings
+              placeholder="Select Court Type"
+              className="select-bg w-100"
+            />
+          )}
         />
         {errors.userLocation && (
           <p className="text-danger">{errors.userLocation.message}</p>

@@ -14,7 +14,6 @@ import moment from "moment";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import Loader from "../../components/common/Loader";
-import { citiesData } from "../../utils/citiesList";
 
 const daysOfWeek = [
   { id: 1, label: "Mon" },
@@ -115,14 +114,9 @@ const AddCourt = () => {
     const userId = localStorage.getItem("adminId");
     setLoading(true);
 
-    // const courtData = {
-    //   ...data,
-    //   courtImages: images,
-    //   courtAvailability: selectedHours,
-    //   userId: Number(localStorage.getItem("adminId")),
-    // };
-
-    data.location.city.toLowerCase();
+    if (data.location && data.location.city) {
+      data.location.city = data.location.city.toLowerCase().trim();
+    }
 
     const formData = new FormData();
 
@@ -143,33 +137,28 @@ const AddCourt = () => {
     formData.append("courtAvailability", JSON.stringify(selectedHours));
     formData.append("userId", userId);
 
-    for (const pair of formData.entries()) {
-      console.log(pair[0] + ", " + pair[1]);
+    try {
+      const response = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}court/add`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } } // Important header for file uploads
+      );
+      console.log(response);
+      response.status === 201
+        ? toast.success(response.data.message)
+        : toast.error(response.data.message);
+    } catch (error) {
+      toast.error("Failed to add court");
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
 
-    // try {
-    //   const response = await axios.post(
-    //     `${process.env.REACT_APP_BACKEND_URL}court/add`,
-    //     formData,
-    //     { headers: { "Content-Type": "multipart/form-data" } } // Important header for file uploads
-    //   );
-    //   console.log(response);
-    //   response.status === 201
-    //     ? toast.success(response.data.message)
-    //     : toast.error(response.data.message);
-    // } catch (error) {
-    //   toast.error("Failed to add court");
-    //   console.error(error);
-    // } finally {
-    //   setLoading(false);
-    // }
-
     // Optionally reset form or navigate
-    // reset();
-    // setTimeout(() => {
-    //   navigate(routes.adminDashboard);
-    // }, 3000);
-    // console.log(response);
+    reset();
+    setTimeout(() => {
+      navigate(routes.adminDashboard);
+    }, 3000);
   };
 
   const handleDayChange = (index: number) => {

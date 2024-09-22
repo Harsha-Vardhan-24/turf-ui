@@ -309,7 +309,7 @@ const EditCourt = () => {
 
   // Function to remove an image
   const removeImg = (index: any) => {
-    setDeletedImages(images[index]);
+    setDeletedImages((prevData) => [images[index], ...prevData]);
     setImages(images.filter((_: any, i: number) => i !== index));
   };
 

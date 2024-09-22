@@ -13,8 +13,14 @@ type Inputs = {
   userLocation: string;
 };
 
+const sortOptions = [
+  { name: "Relevance" },
+  { name: "Price Low - High" },
+  { name: "Price High - Low" },
+  { name: "Featured" },
+];
+
 const ListingList = () => {
-  const { location } = useParams();
   const {
     register,
     handleSubmit,
@@ -25,10 +31,33 @@ const ListingList = () => {
   const [selectedItems, setSelectedItems] = useState(Array(8).fill(false));
   const [userLocation, setUserLocation] = useState<string>();
   const [loading, setLoading] = useState<boolean>(false);
-  const [courtsData, setCourtsData] = useState<CourtsData[]>();
-  const [imagesUrls, setImagesUrls] = useState([]);
+  const [courtsData, setCourtsData] = useState<CourtsData[]>([]);
   const [images, setImages] = useState<string[]>();
-  const [selectedSort, setSelectedSort] = useState();
+  const [selectedSort, setSelectedSort] = useState<any>(sortOptions[0].name);
+
+  useEffect(() => {
+    setCourtsData((prevData) => {
+      const sortedData = [...prevData];
+      const sortOption = selectedSort.name;
+      if (sortOption === "Price Low - High") {
+        sortedData.sort(
+          (a: CourtsData, b: CourtsData) =>
+            a.courtPriceData.starting_price - b.courtPriceData.starting_price
+        );
+        console.log(sortedData);
+      } else if (sortOption === "Price High - Low") {
+        sortedData.sort(
+          (a: CourtsData, b: CourtsData) =>
+            b.courtPriceData.starting_price - a.courtPriceData.starting_price
+        );
+      } else if (sortOption === "Featured") {
+        sortedData.sort((a: CourtsData, b: CourtsData) =>
+          b.featured === true ? 1 : -1
+        );
+      }
+      return sortedData;
+    });
+  }, [selectedSort]);
 
   const handleItemClick = (index: number) => {
     setSelectedItems((prevSelectedItems) => {
@@ -37,7 +66,6 @@ const ListingList = () => {
       return updatedSelectedItems;
     });
   };
-  const sortOptions = [{ name: "Relevance" }, { name: "Price" }];
 
   const SubmitHandler = async (data: Inputs) => {
     const { userLocation } = data;
@@ -89,7 +117,7 @@ const ListingList = () => {
     }
   };
 
-  console.log(images);
+  // console.log(images);
 
   const LocationComponent = () => (
     <div className="d-flex justify-content-center align-items-center bg-light">
@@ -123,7 +151,7 @@ const ListingList = () => {
     <div>
       {loading && <Loader />}
       {!userLocation && <LocationComponent />}
-      {courtsData && (
+      {courtsData.length > 0 && (
         <>
           {/* Breadcrumb */}
           <section className="breadcrumb breadcrumb-list mb-0">
@@ -195,7 +223,9 @@ const ListingList = () => {
                             />
                           </Link>
                           <div className="fav-item-venues">
-                            <span className="tag tag-blue">Featured</span>
+                            {court.featured && (
+                              <span className="tag tag-blue">Featured</span>
+                            )}
                             <h5 className="tag tag-primary">
                               ₹{court.courtPriceData.starting_price}
                               <span>/hr</span>

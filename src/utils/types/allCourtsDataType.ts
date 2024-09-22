@@ -15,7 +15,7 @@ interface LocationData {
 interface CourtPriceData {
   id: number;
   court_id: number;
-  starting_price: string;
+  starting_price: number;
   max_guests: number;
   additional_guests: number;
   price_of_additional_guests: string;
@@ -28,6 +28,7 @@ interface CourtsData {
   court_type: string;
   venue_overview: any;
   rules_of_venue: string;
+  featured: boolean;
   locationData: LocationData;
   courtPriceData: CourtPriceData;
   courtImagesData: courtImagesData[];

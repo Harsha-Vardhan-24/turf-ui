@@ -9,6 +9,8 @@ import AdminDashboard from "../pages/admin/admin-dashboard";
 import AddCourt from "../pages/admin/add-court";
 import EditCourt from "../pages/admin/edit-court";
 import AllCourt from "../pages/admin/all-court";
+import CourtDetails from "../pages/common/court-details";
+import ListingList from "../pages/common/listing-list";
 
 const routes = all_routes;
 
@@ -35,7 +37,7 @@ const adminRoutes = [
   },
 ];
 
-const withoutHeaderRoutes = [
+const authenticationRoutes = [
   {
     path: routes.register,
     element: <Signin />,
@@ -48,4 +50,17 @@ const withoutHeaderRoutes = [
   },
 ];
 
-export { withoutHeaderRoutes, adminRoutes };
+const publicRoutes = [
+  {
+    path: routes.courtDetails,
+    element: <CourtDetails />,
+    route: Route,
+  },
+  {
+    path: routes.ListingList,
+    element: <ListingList />,
+    route: Route,
+  },
+];
+
+export { authenticationRoutes, adminRoutes, publicRoutes };

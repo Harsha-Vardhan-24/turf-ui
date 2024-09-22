@@ -93,7 +93,7 @@ const Signin = () => {
                     <div className="row no-margin vph-100 d-flex align-items-center justify-content-center">
                       <div className="col-sm-10 col-md-10 col-lg-10 mx-auto">
                         <header className="text-center">
-                          <Link to={route.home}>
+                          <Link to={"route.home"}>
                             <ImageWithBasePath
                               src="assets/img/logo-black.svg"
                               className="img-fluid"
@@ -227,7 +227,7 @@ const Signin = () => {
                                   >
                                     By continuing you indicate that you read and
                                     agreed to the{" "}
-                                    <Link to={route.termsCondition}>
+                                    <Link to={"route.termsCondition"}>
                                       Terms of Use
                                     </Link>
                                   </label>
@@ -387,7 +387,7 @@ const Signin = () => {
                                   <label className="form-check-label">
                                     By continuing you indicate that you read and
                                     agreed to the{" "}
-                                    <Link to={route.termsCondition}>
+                                    <Link to={"route.termsCondition"}>
                                       Terms of Use
                                     </Link>
                                   </label>

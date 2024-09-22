@@ -6,6 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { all_routes } from "../../router/all_routes";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
+import Loader from "../../components/common/Loader";
 
 interface Location {
   country: string;
@@ -40,6 +41,7 @@ const AllCourt = () => {
   const navigate = useNavigate();
   const [courtsData, setCourtsData] = useState<Court[]>([]);
   const [searchInput, setSearchInput] = useState("");
+  const [loading, setLoading] = useState(true);
   const adminId = localStorage.getItem("adminId");
 
   useEffect(() => {
@@ -52,6 +54,8 @@ const AllCourt = () => {
       } catch (error) {
         console.error("Error fetching courts data:", error);
         toast.error("Failed to load courts data.");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -202,7 +206,7 @@ const AllCourt = () => {
           <h1 className="text-white">Courts</h1>
           <ul>
             <li>
-              <Link to={routes.home}>Home</Link>
+              <Link to={routes.login}>Home</Link>
             </li>
             <li>Courts</li>
           </ul>
@@ -235,7 +239,7 @@ const AllCourt = () => {
                     </Link>
                   </li>
                   <li>
-                    <Link to={routes.coachRequest}>
+                    <Link to={"routes.coachRequest"}>
                       <ImageWithBasePath
                         src="assets/img/icons/request-icon.svg"
                         alt="Icon"
@@ -245,7 +249,7 @@ const AllCourt = () => {
                     </Link>
                   </li>
                   <li>
-                    <Link to={routes.coachBooking}>
+                    <Link to={"routes.coachBooking"}>
                       <ImageWithBasePath
                         src="assets/img/icons/booking-icon.svg"
                         alt="Icon"
@@ -254,7 +258,7 @@ const AllCourt = () => {
                     </Link>
                   </li>
                   <li>
-                    <Link to={routes.coachChat}>
+                    <Link to={"routes.coachChat"}>
                       <ImageWithBasePath
                         src="assets/img/icons/chat-icon.svg"
                         alt="Icon"
@@ -263,7 +267,7 @@ const AllCourt = () => {
                     </Link>
                   </li>
                   <li>
-                    <Link to={routes.coachEarning}>
+                    <Link to={"routes.coachEarning"}>
                       <ImageWithBasePath
                         src="assets/img/icons/invoice-icon.svg"
                         alt="Icon"
@@ -272,7 +276,7 @@ const AllCourt = () => {
                     </Link>
                   </li>
                   <li>
-                    <Link to={routes.coachWallet}>
+                    <Link to={"routes.coachWallet"}>
                       <ImageWithBasePath
                         src="assets/img/icons/wallet-icon.svg"
                         alt="Icon"
@@ -322,17 +326,21 @@ const AllCourt = () => {
                   />
                 </div> */}
               </div>
-              <DataTable value={filteredData} paginator rows={10}>
-                {columns.map((col) => (
-                  <Column
-                    key={col.field}
-                    field={col.field}
-                    header={col.header}
-                    body={col.body}
-                    sortable={col.sortable}
-                  />
-                ))}
-              </DataTable>
+              {loading ? (
+                <Loader />
+              ) : (
+                <DataTable value={filteredData} paginator rows={10}>
+                  {columns.map((col) => (
+                    <Column
+                      key={col.field}
+                      field={col.field}
+                      header={col.header}
+                      body={col.body}
+                      sortable={col.sortable}
+                    />
+                  ))}
+                </DataTable>
+              )}
             </div>
           </div>
         </div>

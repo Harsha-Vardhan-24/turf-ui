@@ -14,7 +14,7 @@ const ChangePassword = () => {
             <div className="col-xl-6 col-lg-6 col-md-7 mx-auto vph-100 d-flex align-items-center">
               <div className="change-password w-100">
                 <header className="text-center">
-                  <Link to={routes.home}>
+                  <Link to={"routes.home"}>
                     <ImageWithBasePath
                       src="assets/img/logo-black.svg"
                       className="img-fluid"

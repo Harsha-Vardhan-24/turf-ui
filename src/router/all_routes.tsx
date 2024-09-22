@@ -1,3 +1,5 @@
+import ListingList from "../pages/common/listing-list";
+
 export const all_routes = {
   // home: "/index",
   // // Blog Routes
@@ -112,4 +114,11 @@ export const all_routes = {
   // Auth Routes
   register: "/auth/register",
   login: "/auth/login",
+
+  // Public Routes
+  courtDetails: "/court/:courtId",
+  ListingList: "/courts",
+
+  // connecting routes
+  courtDetailsLink: "/court",
 };

@@ -1,9 +1,10 @@
 import React from "react";
-import { adminRoutes, withoutHeaderRoutes } from "./router.link";
+import { adminRoutes, authenticationRoutes, publicRoutes } from "./router.link";
 import { Outlet, Route, Routes } from "react-router-dom";
 import PrivateAdminRoute from "./PrivateAdminRoute";
 import Header from "../components/common/header";
 import Footer from "../components/common/footer";
+import AuthRoute from "./AuthRoute";
 
 const AllRoutes = () => {
   const HeaderLayout = () => (
@@ -26,10 +27,17 @@ const AllRoutes = () => {
               key={idx}
             />
           ))}
+          {publicRoutes.map((route, idx) => (
+            <Route path={route.path} element={route.element} key={idx} />
+          ))}
         </Route>
         <Route path={"/"}>
-          {withoutHeaderRoutes.map((route, idx) => (
-            <Route path={route.path} element={route.element} key={idx} />
+          {authenticationRoutes.map((route, idx) => (
+            <Route
+              path={route.path}
+              element={<AuthRoute element={route.element} />}
+              key={idx}
+            />
           ))}
         </Route>
       </Routes>

@@ -13,7 +13,7 @@ const ForgotPassword = () => {
             <div className="col-md-6 col-lg-6 mx-auto vph-100 d-flex align-items-center">
               <div className="forgot-password w-100">
                 <header className="text-center forgot-head-title">
-                  <Link to={routes.home}>
+                  <Link to={"routes.home"}>
                     <ImageWithBasePath
                       src="assets/img/logo-black.svg"
                       className="img-fluid"

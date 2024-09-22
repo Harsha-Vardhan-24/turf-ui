@@ -78,7 +78,7 @@ const Login = () => {
                   <div className="row no-margin vph-100 d-flex align-items-center justify-content-center">
                     <div className="col-sm-10 col-md-10 col-lg-10 mx-auto">
                       <header className="text-center">
-                        <Link to={route.userDashboardProfiles}>
+                        <Link to={"route.userDashboardProfiles"}>
                           <ImageWithBasePath
                             src="assets/img/logo-black.svg"
                             className="img-fluid"

@@ -1,5 +1,5 @@
 export interface breadcrumbs {
-  maintitle: ReactNode;
+  maintitle: any;
   title: string;
   subtitle: string;
 }

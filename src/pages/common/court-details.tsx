@@ -6,8 +6,10 @@ import "slick-carousel/slick/slick-theme.css";
 import Slider from "react-slick";
 import axios from "axios";
 import Loader from "../../components/common/Loader";
+import { all_routes } from "../../router/all_routes";
 
 const CourtDetails = () => {
+  const routes = all_routes;
   const { courtId } = useParams();
   const [loading, setLoading] = useState<boolean>(false);
   const [images, setImages] = useState<any>([]);
@@ -604,7 +606,7 @@ const CourtDetails = () => {
                       </ul>
                       <div className="d-grid btn-block mt-3">
                         <Link
-                          to="coach-details.html"
+                          to={`${routes.courtDetailsLink}/${courtId}/booking`}
                           className="btn btn-secondary d-inline-flex justify-content-center align-items-center"
                         >
                           <i className="feather-calendar" />

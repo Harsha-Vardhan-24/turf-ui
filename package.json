@@ -22,6 +22,7 @@
     "lightbox.js-react": "^1.0.0",
     "lightgallery": "^2.7.2",
     "moment": "^2.30.1",
+    "nanoid": "^5.0.7",
     "primeflex": "^3.3.1",
     "primeicons": "^6.0.1",
     "primereact": "^10.5.1",

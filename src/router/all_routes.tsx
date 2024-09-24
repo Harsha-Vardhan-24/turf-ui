@@ -1,3 +1,5 @@
+import BookingSuccess from "../components/common/court/booking-success";
+import BookingConfirmation from "../components/common/court/booking-success";
 import ListingList from "../pages/common/listing-list";
 
 export const all_routes = {
@@ -118,6 +120,11 @@ export const all_routes = {
   // Public Routes
   courtDetails: "/court/:courtId",
   ListingList: "/courts",
+  courtBooking: "/court/:courtId/booking",
+
+  // Booking Routes
+  bookingSuccess: "/booking/success",
+  bookingFailure: "/booking/failure",
 
   // connecting routes
   courtDetailsLink: "/court",

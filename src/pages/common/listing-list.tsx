@@ -144,7 +144,7 @@ const ListingList = () => {
               value={field.value} // Since courtOptions is now an array of strings
               onChange={(e) => field.onChange(e.value)} // Directly update the selected value
               options={locations} // Pass the array of strings
-              placeholder="Select Court Type"
+              placeholder="Select Location"
               className="select-bg w-100"
             />
           )}
@@ -299,7 +299,7 @@ const ListingList = () => {
                               </Link>
                             </div>
                             <Link
-                              to={`${routes.courtDetailsLink}/${court.id}`}
+                              to={`${routes.courtDetailsLink}/${court.id}/booking`}
                               className="user-book-now"
                             >
                               <span>

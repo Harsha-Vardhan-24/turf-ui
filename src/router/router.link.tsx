@@ -11,6 +11,9 @@ import EditCourt from "../pages/admin/edit-court";
 import AllCourt from "../pages/admin/all-court";
 import CourtDetails from "../pages/common/court-details";
 import ListingList from "../pages/common/listing-list";
+import CourtBooking from "../pages/common/court-booking";
+import BookingSuccess from "../components/common/court/booking-success";
+import BookingFailure from "../components/common/court/booking-failure";
 
 const routes = all_routes;
 
@@ -59,6 +62,21 @@ const publicRoutes = [
   {
     path: routes.ListingList,
     element: <ListingList />,
+    route: Route,
+  },
+  {
+    path: routes.courtBooking,
+    element: <CourtBooking />,
+    route: Route,
+  },
+  {
+    path: routes.bookingSuccess,
+    element: <BookingSuccess />,
+    route: Route,
+  },
+  {
+    path: routes.bookingFailure,
+    element: <BookingFailure />,
     route: Route,
   },
 ];

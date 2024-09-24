@@ -28,10 +28,10 @@ const LoginFormComponent = () => {
         `${process.env.REACT_APP_BACKEND_URL}admin/auth`,
         data
       );
-      // toast.success(response.data.message);
-      // localStorage.setItem("adminToken", response.data.token);
-      // localStorage.setItem("adminId", response.data.adminId);
-      // navigate(route.adminDashboard);
+      toast.success(response.data.message);
+      localStorage.setItem("adminToken", response.data.token);
+      localStorage.setItem("adminId", response.data.adminId);
+      navigate(route.adminDashboard);
       console.log(response.data);
       console.log(response);
     } catch (error: any) {

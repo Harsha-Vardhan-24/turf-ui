@@ -126,12 +126,15 @@ const EditCourt = () => {
           reset({
             courtName: fetchedCourtData.court_name,
             courtType: fetchedCourtData.court_type,
+            phoneNumber: fetchedCourtData.phone_number,
+            email: fetchedCourtData.email,
             venuePrice: {
               startingPrice: fetchedCourtData.pricing.starting_price,
               maxGuests: fetchedCourtData.pricing.max_guests,
               additionalGuests: fetchedCourtData.pricing.additional_guests,
               priceOfAdditionalGuests:
                 fetchedCourtData.pricing.price_of_additional_guests,
+              advancePay: fetchedCourtData.advancePay,
             },
             venueOverview: fetchedCourtData.venue_overview,
             courtIncludes: {
@@ -155,6 +158,7 @@ const EditCourt = () => {
               country: fetchedCourtData.location.country,
               city: fetchedCourtData.location.city,
               locationLink: fetchedCourtData.location.location_link,
+              embedLink: fetchedCourtData.location.embed_link,
             },
           });
 
@@ -227,7 +231,9 @@ const EditCourt = () => {
     formData.append("amenities", JSON.stringify(data.amenities));
     formData.append("location", JSON.stringify(data.location));
     formData.append("courtAvailability", JSON.stringify(selectedHours));
-    formData.append("userId", adminId);
+    if (adminId) {
+      formData.append("userId", adminId);
+    }
 
     console.log(images);
 
@@ -321,20 +327,6 @@ const EditCourt = () => {
   return (
     <div>
       <ToastContainer />
-      {/* Breadcrumb */}
-      <div className="breadcrumb breadcrumb-list mb-0">
-        <span className="primary-right-round" />
-        <div className="container">
-          <h1 className="text-white">Edit Your Court</h1>
-          <ul>
-            <li>
-              <Link to={routes.adminDashboard}>Home</Link>
-            </li>
-            <li>Edit Your Court</li>
-          </ul>
-        </div>
-      </div>
-      {/* /Breadcrumb */}
       {/* Page Content */}
       <div className="content">
         <div className="container">
@@ -599,6 +591,42 @@ const EditCourt = () => {
                               <p className="text-danger">
                                 {
                                   errors.venuePrice?.priceOfAdditionalGuests
+                                    ?.message as string
+                                }
+                              </p>
+                            </div>
+                            <div className="col-lg-6 col-md-6">
+                              <div className="input-space mb-0">
+                                <label
+                                  htmlFor="advancePay"
+                                  className="form-label"
+                                >
+                                  Advance Payment
+                                </label>
+                                <input
+                                  {...register("venuePrice.advancePay", {
+                                    required: "Advance Payment is required",
+                                    min: {
+                                      value: 25,
+                                      message:
+                                        "Advance Payment must be at least 25",
+                                    },
+                                    max: {
+                                      value: 100,
+                                      message:
+                                        "Advance Payment must be at most 100",
+                                    },
+                                  })}
+                                  type="number" // Using number type for better control over min/max values
+                                  className="form-control"
+                                  id="advancePay"
+                                  placeholder="Enter Advance Payment"
+                                  defaultValue={25} // Setting the default value to 25
+                                />
+                              </div>
+                              <p className="text-danger">
+                                {
+                                  errors.venuePrice?.advancePay
                                     ?.message as string
                                 }
                               </p>
@@ -2562,7 +2590,59 @@ const EditCourt = () => {
                                 {errors.location?.city?.message as string}
                               </p>
                             </div>
-                            <div className="col-12">
+                            <div className="col-lg-6 col-md-6">
+                              <div className="input-space">
+                                <label
+                                  htmlFor="phone-number"
+                                  className="form-label"
+                                >
+                                  Phone Number <span>*</span>
+                                </label>
+                                <input
+                                  {...register("phoneNumber", {
+                                    required: "Phone number is required",
+                                    pattern: {
+                                      value: /^[0-9]{10}$/, // Regular expression for 10 digit phone numbers
+                                      message:
+                                        "Please enter a valid 10-digit phone number",
+                                    },
+                                  })}
+                                  type="text"
+                                  className="form-control"
+                                  id="phone-number"
+                                  placeholder="Enter Phone Number"
+                                />
+                              </div>
+                              <p className="text-danger">
+                                {errors.phoneNumber?.message as string}
+                              </p>
+                            </div>
+
+                            <div className="col-lg-6 col-md-6">
+                              <div className="input-space">
+                                <label htmlFor="email" className="form-label">
+                                  Email <span>*</span>
+                                </label>
+                                <input
+                                  {...register("email", {
+                                    required: "Email is required",
+                                    pattern: {
+                                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, // Regular expression for a valid email address
+                                      message:
+                                        "Please enter a valid email address",
+                                    },
+                                  })}
+                                  type="email"
+                                  className="form-control"
+                                  id="email"
+                                  placeholder="Enter Email"
+                                />
+                              </div>
+                              <p className="text-danger">
+                                {errors.email?.message as string}
+                              </p>
+                            </div>
+                            <div className="col-lg-6 col-md-6">
                               <div className="input-space">
                                 <label
                                   htmlFor="street-address"
@@ -2578,6 +2658,31 @@ const EditCourt = () => {
                                   className="form-control"
                                   id="street-address"
                                   placeholder="Enter Link"
+                                />
+                              </div>
+                              <p className="text-danger">
+                                {
+                                  errors.location?.locationLink
+                                    ?.message as string
+                                }
+                              </p>
+                            </div>
+                            <div className="col-lg-6 col-md-6">
+                              <div className="input-space">
+                                <label
+                                  htmlFor="google-maps-link"
+                                  className="form-label"
+                                >
+                                  Google Maps Embed Link <span>*</span>
+                                </label>
+                                <input
+                                  {...register("location.embedLink", {
+                                    required: "Google Maps Link is required",
+                                  })}
+                                  type="text"
+                                  className="form-control"
+                                  id="google-maps-link"
+                                  placeholder="Enter Google Maps Embed Link"
                                 />
                               </div>
                               <p className="text-danger">

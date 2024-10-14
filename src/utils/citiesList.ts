@@ -5,7 +5,7 @@ export const citiesList = async () => {
     const response = await axios.get(
       `${process.env.REACT_APP_BACKEND_URL}court/getLocations`
     );
-    return response.data.locations
+    return response.data.locations;
   } catch (error) {
     console.error(error);
   }

@@ -1,17 +1,16 @@
-import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import React, { useContext, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import ImageWithBasePath from "../../core/data/img/ImageWithBasePath";
 import { Dropdown } from "primereact/dropdown";
-import { all_routes } from "../../router/all_routes";
 import Loader from "../../components/common/Loader";
-import { citiesList } from "../../utils/citiesList";
-import { Controller, useForm } from "react-hook-form";
 import axios from "axios";
-import { arrayBuffer } from "stream/consumers";
-
-type Inputs = {
-  userLocation: string;
-};
+import { toast } from "react-toastify";
+import { FilterForm } from "../../components/common/filters-form";
+import LocationDataModal from "../../components/common/location-data-modal";
+import GridCard from "../../components/common/courts-list/grid-card";
+import ListCard from "../../components/common/courts-list/list-card";
+import { UserLocationContext } from "../..";
+import ButtonLoader from "../../components/common/button-loader";
 
 const sortOptions = [
   { name: "Relevance" },
@@ -21,28 +20,43 @@ const sortOptions = [
 ];
 
 const ListingList = () => {
-  const {
-    register,
-    handleSubmit,
-    watch,
-    control,
-    formState: { errors },
-  } = useForm<Inputs>();
-  const routes = all_routes;
-  const [selectedItems, setSelectedItems] = useState(Array(8).fill(false));
-  const [userLocation, setUserLocation] = useState<string>();
+  const [viewMode, setViewMode] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
+  const [filtersLoading, setFiltersLoading] = useState<boolean>(false);
+  const [showFilters, setShowFilters] = useState<boolean>(false);
   const [courtsData, setCourtsData] = useState<CourtsData[]>([]);
-  const [locations, setLocations] = useState([]);
-  const [images, setImages] = useState<string[]>();
+  const [images, setImages] = useState<string[]>([]);
   const [selectedSort, setSelectedSort] = useState<any>(sortOptions[0].name);
+  const [userWishlist, setUserWishlist] = useState<number[]>([]);
+  const [limit, setLimit] = useState<number>(18);
+  const [offset, setOffset] = useState<number>(0);
+  const [lastPage, setLastPage] = useState<number>(0);
+  const [paginationData, setPaginationData] = useState<PageinationType>();
+  const [uniqueCourtsData, setuniqueCourtsData] = useState<CourtsData[]>([]);
+  const [pageLoading, setPageLoading] = useState<boolean>(false);
+  const userId =
+    localStorage.getItem("adminId") || localStorage.getItem("userId");
+
+  const pageLoadingRef = useRef(null);
+
+  const locationContext = useContext(UserLocationContext);
+
+  if (!locationContext) {
+    throw new Error("Error getting user location");
+  }
+
+  const { userLocationInContext, setUserLocationInContext } = locationContext;
 
   useEffect(() => {
-    const getCitiesData = async () => {
-      const fetchedLocations = await citiesList();
-      setLocations(fetchedLocations);
-    };
-    getCitiesData();
+    if (userLocationInContext) {
+      SubmitHandler();
+    }
+  }, [userLocationInContext, offset, userWishlist]);
+
+  useEffect(() => {
+    if (userId) {
+      getUserWishList();
+    }
     setCourtsData((prevData) => {
       const sortedData = [...prevData];
       const sortOption = selectedSort.name;
@@ -51,7 +65,7 @@ const ListingList = () => {
           (a: CourtsData, b: CourtsData) =>
             a.courtPriceData.starting_price - b.courtPriceData.starting_price
         );
-        console.log(sortedData);
+        // (sortedData);
       } else if (sortOption === "Price High - Low") {
         sortedData.sort(
           (a: CourtsData, b: CourtsData) =>
@@ -66,121 +80,170 @@ const ListingList = () => {
     });
   }, [selectedSort]);
 
-  const handleItemClick = (index: number) => {
-    setSelectedItems((prevSelectedItems) => {
-      const updatedSelectedItems = [...prevSelectedItems];
-      updatedSelectedItems[index] = !updatedSelectedItems[index];
-      return updatedSelectedItems;
-    });
+  const handleItemClick = (courtId: number) => {
+    console.log(userWishlist?.includes(Number(courtId)));
+
+    if (!userWishlist || userWishlist.length === 0) {
+      // If userWishlist is null, undefined, or an empty array
+      setUserWishlist([Number(courtId)]);
+      updateWishList([Number(courtId)]);
+    } else {
+      if (userWishlist.includes(Number(courtId))) {
+        // Remove the item if it already exists in the wishlist
+        setUserWishlist((prevData) => {
+          const localWishList = prevData.filter((id) => id !== Number(courtId));
+          updateWishList(localWishList);
+          return localWishList;
+        });
+      } else {
+        // Add the item to the wishlist
+        setUserWishlist((prevData) => {
+          const localWishList = [...prevData, Number(courtId)];
+          updateWishList(localWishList);
+          return localWishList;
+        });
+      }
+    }
   };
 
-  const SubmitHandler = async (data: Inputs) => {
-    const { userLocation } = data;
-    setUserLocation(userLocation);
+  const SubmitHandler = async () => {
+    // const userLocationInContext = localStorage.getItem("userLocationInContext");
+    // const { userLocationInContext } = data;
+    userLocationInContext && setUserLocationInContext(userLocationInContext);
 
     try {
       setLoading(true);
-
+      setPageLoading(true);
       // Fetch all courts based on user location
       const response = await axios.get(
-        `${process.env.REACT_APP_BACKEND_URL}court/fetch/all/${userLocation}`
+        `${process.env.REACT_APP_BACKEND_URL}court/fetch/all/${userLocationInContext}`,
+        {
+          params: {
+            limit,
+            offset,
+          },
+        }
       );
-
       console.log(response.data);
-      setCourtsData(response.data.courtsData);
+      setCourtsData((prevData) => {
+        const combinedData = [...prevData, ...response.data.courtsData];
 
-      // Fetch court images
-      const imagePromises = response.data.courtsData.map(async (court: any) => {
+        // Create a map to store courts by their unique `id`
+        const courtsMap = new Map();
+        combinedData.forEach((court) => courtsMap.set(court.id, court));
+
+        // Return only unique courts based on their `id`
+        return Array.from(courtsMap.values());
+      });
+
+      setPaginationData(response.data.pagination);
+      setLastPage(response.data.pagination.totalCount / limit);
+
+      // Filter the courtsData to remove duplicates based on court.id
+      const uniqueCourtsData = response.data.courtsData.filter(
+        (court: any, index: number, self: any[]) =>
+          index === self.findIndex((c) => c.id === court.id) // Keep only the first occurrence of each court.id
+      );
+      console.log("UNQC:", uniqueCourtsData);
+      setuniqueCourtsData(uniqueCourtsData);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+      setPageLoading(false);
+    }
+  };
+  // console.log("CourtsData:", courtsData);
+  // console.log("uniQC:", uniqueCourtsData);
+  useEffect(() => {
+    const fetchImages = async () => {
+      const imagePromises = courtsData.map(async (court: any) => {
         try {
-          // Access the courtImagesData directly since it's an object
-          const image = court.courtImagesData;
+          const image = court.courtImagesData[0];
           const imageUrl = `${process.env.REACT_APP_BACKEND_URL}court/uploads/${court.user_id}/${court.id}/${image.image_url}`;
-          console.log(imageUrl);
-
           const getImage = await axios.get(imageUrl, {
-            responseType: "arraybuffer", // Expect binary data
+            responseType: "arraybuffer",
           });
-
           const blob = new Blob([getImage.data], { type: "image/webp" });
           const imgSrc = URL.createObjectURL(blob);
-          return imgSrc; // Return the image source URL
+          return imgSrc;
         } catch (error) {
           console.error(
             `Error fetching image for court ${court.court_name}:`,
             error
           );
-          return null; // Return null for failed images
+          return null;
         }
       });
 
-      // Await all image promises
       const resolvedImages = await Promise.all(imagePromises);
 
-      setImages(resolvedImages); // Flatten and filter out nulls
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
+      // Replace the images state instead of appending
+      setImages(resolvedImages.filter(Boolean) as string[]);
+    };
+
+    fetchImages();
+  }, [courtsData]);
+
+  // console.log("images:", images);
+
+  const updateWishList = async (wishList: number[]) => {
+    if (userId) {
+      try {
+        const response = await axios.put(
+          `${process.env.REACT_APP_BACKEND_URL}user/wishlist/update/${userId}`,
+          { wishList }
+        );
+        console.log(response.data);
+      } catch (error) {
+        console.error(error);
+        toast.error("Error Updating Wishlist");
+      }
     }
   };
 
-  // console.log(images);
+  const getUserWishList = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_BACKEND_URL}user/get/${userId}`
+      );
+      setUserWishlist(response.data.user.wishlist);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
-  const LocationComponent = () => (
-    <div className="d-flex justify-content-center align-items-center bg-light">
-      <form
-        className="col-lg-4 col-md-4"
-        onSubmit={handleSubmit(SubmitHandler)}
-      >
-        <label htmlFor="userLocation" className="form-label">
-          Location
-        </label>
-        <Controller
-          name="userLocation"
-          control={control}
-          rules={{ required: "Location required" }}
-          render={({ field }) => (
-            <Dropdown
-              value={field.value} // Since courtOptions is now an array of strings
-              onChange={(e) => field.onChange(e.value)} // Directly update the selected value
-              options={locations} // Pass the array of strings
-              placeholder="Select Location"
-              className="select-bg w-100"
-            />
-          )}
-        />
-        {errors.userLocation && (
-          <p className="text-danger">{errors.userLocation.message}</p>
-        )}
-        <button className="text-center mb-2 btn btn-secondary save-profile">
-          Enter <i className="feather-arrow-right-circle ms-1" />
-        </button>
-      </form>
-    </div>
-  );
+  const handleInfIniteScroll = () => {
+    const documentTotalHeight = document.documentElement.scrollHeight;
+    const windowHeight = window.innerHeight;
+    const scrollTopLeft = document.documentElement.scrollTop;
+    if (windowHeight + scrollTopLeft >= documentTotalHeight - 200) {
+      // (paginationData);
+      if (paginationData && lastPage > paginationData.currentPage) {
+        handlePagination(paginationData.nextOffset);
+      }
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener("scroll", handleInfIniteScroll);
+    return () => {
+      window.removeEventListener("scroll", handleInfIniteScroll);
+    };
+  }, [paginationData]);
+
+  const handlePagination = (movement: number) => {
+    setOffset(movement);
+  };
 
   return (
-    <div>
-      {loading && <Loader />}
-      {!userLocation && <LocationComponent />}
-      {courtsData.length > 0 && (
-        <>
-          {/* Breadcrumb */}
-          <section className="breadcrumb breadcrumb-list mb-0">
-            <span className="primary-right-round" />
-            <div className="container">
-              <h1 className="text-white">Courts List </h1>
-              <ul>
-                <li>
-                  <Link to="">Home</Link>
-                </li>
-                <li>Courts List </li>
-              </ul>
-            </div>
-          </section>
-          {/* /Breadcrumb */}
+    <>
+      {!userLocationInContext && <LocationDataModal />}
+      {courtsData.length === 0 && loading && <Loader />}
+      {userLocationInContext && courtsData.length > 0 && (
+        <div>
           {/* Page Content */}
-          <div className="content listing-list-page">
+          <div className="content listing-page listing-list-page">
             <div className="container">
               {/* Sort By */}
               <div className="row">
@@ -191,13 +254,56 @@ const ListingList = () => {
                         <div className="col-xl-4 col-lg-3 col-sm-12 col-12">
                           <div className="count-search">
                             <p>
-                              <span>{courtsData?.length}</span> venues are
-                              listed
+                              Showing{" "}
+                              <span>{Number(paginationData?.totalCount)}</span>{" "}
+                              Locations in{" "}
+                              <span className="text-capitalize">
+                                {userLocationInContext}
+                              </span>
                             </p>
+                            <Link
+                              to="#"
+                              style={{ fontSize: "12px" }}
+                              className="text-small text-success"
+                              onClick={() => setShowFilters(!showFilters)}
+                            >
+                              {showFilters ? "Hide Filters" : "Show Filters"}
+                            </Link>
                           </div>
                         </div>
                         <div className="col-xl-8 col-lg-9 col-sm-12 col-12">
                           <div className="sortby-filter-group">
+                            <div className="grid-listview">
+                              <ul className="nav">
+                                <li>
+                                  <span>View as</span>
+                                </li>
+                                <li>
+                                  <Link
+                                    to="#"
+                                    onClick={() => setViewMode(0)}
+                                    className={`${viewMode === 0 ? "active" : ""}`}
+                                  >
+                                    <ImageWithBasePath
+                                      src="assets/img/icons/sort-01.svg"
+                                      alt="Icon"
+                                    />
+                                  </Link>
+                                </li>
+                                <li>
+                                  <Link
+                                    to="#"
+                                    onClick={() => setViewMode(1)}
+                                    className={`${viewMode === 1 ? "active" : ""}`}
+                                  >
+                                    <ImageWithBasePath
+                                      src="assets/img/icons/sort-02.svg"
+                                      alt="Icon"
+                                    />
+                                  </Link>
+                                </li>
+                              </ul>
+                            </div>
                             <div className="sortbyset">
                               <span className="sortbytitle">Sort By</span>
                               <div className="sorting-select">
@@ -219,108 +325,78 @@ const ListingList = () => {
                 </div>
               </div>
               {/* Sort By */}
-              {/* Listing Content */}
-              <div className="row justify-content-center">
-                {/* Featured Item */}
-                {courtsData?.map((court: CourtsData, idx) => (
-                  <div key={idx} className="col-lg-12 col-md-12">
-                    <div className="featured-venues-item venue-list-item">
-                      <div className="listing-item listing-item-grid">
-                        <div className="listing-img">
-                          <Link to={`${routes.courtDetailsLink}/${court.id}`}>
-                            <img
-                              style={{ maxHeight: "315px" }}
-                              src={images && images[idx]}
-                              alt="court img"
-                            />
-                          </Link>
-                          <div className="fav-item-venues">
-                            {court.featured && (
-                              <span className="tag tag-blue">Featured</span>
-                            )}
-                            <h5 className="tag tag-primary">
-                              ₹{court.courtPriceData.starting_price}
-                              <span>/hr</span>
-                            </h5>
-                          </div>
-                        </div>
-                        <div className="listing-content">
-                          <div className="list-reviews">
-                            <div className="d-flex align-items-center">
-                              <span className="rating-bg">4.2</span>
-                              <span>300 Reviews</span>
-                            </div>
-                            <Link
-                              to="#"
-                              key={1}
-                              onClick={() => handleItemClick(1)}
-                              className={`fav-icon ${selectedItems[1] ? "selected" : ""}`}
-                            >
-                              <i className="feather-heart" />
-                            </Link>
-                          </div>
-                          <h3 className="listing-title">
-                            <Link to={`${routes.courtDetailsLink}/${court.id}`}>
-                              {court.court_name}
-                            </Link>
-                          </h3>
-                          <div className="listing-details-group">
-                            <p
-                              dangerouslySetInnerHTML={{
-                                __html: `${court.venue_overview?.substring(0, 300)} <span><a style="color: #097E52;" href="#">Read more</a></span>`,
-                              }}
-                            />
-                            <ul className="listing-details-info">
-                              <li>
-                                <span>
-                                  <i className="feather-map-pin" />
-                                  {`${court.locationData.city.charAt(0).toLocaleUpperCase()}${court.locationData.city.slice(1)}, ${court.locationData.country}`}
-                                </span>
-                              </li>
-                              <li>
-                                <span>
-                                  <i className="feather-calendar" />
-                                  Next availablity :{" "}
-                                  <span className="primary-text">
-                                    21 May 2023
-                                  </span>
-                                </span>
-                              </li>
-                            </ul>
-                          </div>
-                          <div className="listing-button">
-                            <div className="listing-venue-owner">
-                              <Link className="navigation" to={""}>
-                                <ImageWithBasePath
-                                  src="assets/img/profiles/avatar-01.jpg"
-                                  alt="User"
-                                />
-                                Mart Sublin
-                              </Link>
-                            </div>
-                            <Link
-                              to={`${routes.courtDetailsLink}/${court.id}/booking`}
-                              className="user-book-now"
-                            >
-                              <span>
-                                <i className="feather-calendar me-2" />
-                              </span>
-                              Book Now
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
+              {/* Listing Content Group*/}
+              <div className="listing-list-sidebar">
+                <div className="row">
+                  {/* Form */}
+                  {showFilters && (
+                    <FilterForm
+                      setFiltersLoading={setFiltersLoading}
+                      setImages={setImages}
+                      setCourtsData={setCourtsData}
+                      userLocation={userLocationInContext}
+                      setUserLocation={setUserLocationInContext}
+                      limit={limit}
+                      offset={offset}
+                    />
+                  )}
+                  <div className={`${showFilters ? "col-lg-8" : "col-lg-12"}`}>
+                    {/* Listing Content */}
+                    <div className="row justify-content-start">
+                      {/* Grid View */}
+                      {viewMode === 0 &&
+                        !filtersLoading &&
+                        courtsData?.map((court: CourtsData, idx) => (
+                          <GridCard
+                            showFilters={showFilters}
+                            key={idx}
+                            court={court}
+                            userWishlist={userWishlist}
+                            handleItemClick={handleItemClick}
+                            images={images}
+                            idx={idx}
+                          />
+                        ))}
+
+                      {/* List View */}
+                      {viewMode === 1 &&
+                        !filtersLoading &&
+                        courtsData?.map((court: CourtsData, idx) => (
+                          <ListCard
+                            key={idx}
+                            court={court}
+                            userWishlist={userWishlist}
+                            handleItemClick={handleItemClick}
+                            images={images}
+                            idx={idx}
+                          />
+                        ))}
+
+                      {/* Loader Animation */}
+                      {filtersLoading && <Loader />}
+
+                      {courtsData.length === 0 && !filtersLoading && (
+                        <h1>No Data found</h1>
+                      )}
                     </div>
+                    {/* /Listing Content */}
                   </div>
-                ))}
+                  {/* Pagination */}
+                  {pageLoading && (
+                    <div className="w-full d-flex justify-content-center">
+                      <ButtonLoader />
+                    </div>
+                  )}
+                  {/* /Pagination */}
+                </div>
               </div>
-              {/* /Listing Content */}
+              {/* Listing Content Group*/}
             </div>
           </div>
           {/* /Page Content */}
-        </>
+        </div>
       )}
-    </div>
+    </>
   );
 };
 

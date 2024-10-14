@@ -9,37 +9,15 @@ import { ToastContainer } from "react-bootstrap";
 import { toast } from "react-toastify";
 import Loader from "../Loader";
 import CourtBookingSummaryComponent from "./court-booking-summary-component";
+import { formatTime } from "../../../utils/formatTime";
+import { formatEndTime } from "../../../utils/formatEndTime";
+import { dayNames, monthNames } from "../../../utils/calenderData";
 
 const timeSlotsContent = {
   title: "Time & Date",
   description:
     "Book your training session at a time and date that suits your needs.",
 };
-
-const monthNames = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-const dayNames = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
 
 const featuredVenuesSlider = {
   dots: false,
@@ -83,19 +61,25 @@ interface TimeSlotInterface {
 }
 
 const CourtTimeSlotsComponent = ({
+  progress,
+  setProgress,
   courtData,
   courtImage,
   selectedDate,
   setSelectedDate,
   selectedSlots,
   setSetselectedSlots,
+  courtDuration,
 }: {
+  progress: number;
+  setProgress: any;
   courtData: CourtDataType;
   courtImage: any;
   selectedDate: any;
   setSelectedDate: any;
   selectedSlots: any;
   setSetselectedSlots: any;
+  courtDuration: string;
 }) => {
   const routes = all_routes;
   //   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -104,8 +88,27 @@ const CourtTimeSlotsComponent = ({
   const [slotsLoading, setSlotsLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    // Reset selectedSlots to an empty array when the date changes
-    setSetselectedSlots([]);
+    // Create a function to compare two dates (ignoring time)
+    const isSameDate = (date1: Date, date2: Date) => {
+      return (
+        date1.getFullYear() === date2.getFullYear() &&
+        date1.getMonth() === date2.getMonth() &&
+        date1.getDate() === date2.getDate()
+      );
+    };
+
+    const today = new Date();
+
+    // Check if today and selectedDate are not the same
+    if (!isSameDate(today, selectedDate)) {
+      setSetselectedSlots([]); // Reset selectedSlots
+    }
+    const updatedTimeSlots = timeSlots.map((slot) => ({
+      ...slot,
+      isChecked: false, // Set isChecked to false for every slot
+    }));
+    console.log(updatedTimeSlots);
+    setTimeSlots(updatedTimeSlots);
   }, [selectedDate]);
 
   // Handle time slot click (toggles isChecked only if the slot is active)
@@ -172,7 +175,6 @@ const CourtTimeSlotsComponent = ({
     // console.log("Selected Slots:", selectedSlots);
   };
 
-  console.log(monthNames[selectedDate.getMonth()]);
   // Generate time slots based on the provided data
   const generateTimeSlots = (
     timeSlotsData: {
@@ -245,10 +247,13 @@ const CourtTimeSlotsComponent = ({
     const dayName = dayNames[dayIndex].toLowerCase(); // Get the corresponding day name in lowercase
     const formattedDate = selectedDate.toISOString().split("T")[0]; // Format the selected date
 
+    console.log(formattedDate);
+    console.log(courtData);
+
     try {
       setSlotsLoading(true);
       const response = await axios.get(
-        `${process.env.REACT_APP_BACKEND_URL}court/availability/${formattedDate}`
+        `${process.env.REACT_APP_BACKEND_URL}court/availability/${courtData.court_id}/${formattedDate}`
       );
 
       const bookedTimeSlots = response.data.bookedTimeSlots;
@@ -314,19 +319,20 @@ const CourtTimeSlotsComponent = ({
     updateTimeSlots();
   }, [courtData, selectedDate]);
 
-  //   console.log(timeSlots);
+  console.log(timeSlots);
+
   return (
     <div>
       <>
         <ToastContainer />
         {/* Page Content */}
-        <div className="container">
-          <CourtDetailsComponent
+        <div className="container pt-0">
+          {/* <CourtDetailsComponent
             courtData={courtData}
             courtImage={courtImage}
             contentTitle={timeSlotsContent.title}
             contentDescription={timeSlotsContent.description}
-          />
+          /> */}
           <div className="row text-center">
             <div className="col-12 col-sm-12 col-md-12 col-lg-8">
               <div className="card time-date-card">
@@ -357,20 +363,24 @@ const CourtTimeSlotsComponent = ({
                   </div>
                   <div className="row">
                     {slotsLoading && <Loader />}
-                    {!slotsLoading && timeSlots.length > 0 ? (
+                    {!slotsLoading &&
+                    (timeSlots.length == 0 ||
+                      timeSlots[0].time !== "No available slots") ? (
                       timeSlots.map((slot, index) => (
                         <div key={index} className="col-12 col-sm-4 col-md-3">
                           <div
-                            className={`time-slot ${slot.isChecked ? "checked" : ""} ${slot.isActive ? "active" : ""} ${slot.isBooked && "cursor-none"}`}
+                            className={`time-slot ${slot.isChecked ? "checked" : ""} ${slot.isActive ? "active" : ""} ${slot.isBooked ? "cursor-none" : ""}`}
                             onClick={() => handleTimeSlotClick(index)}
                           >
-                            <span>{slot.time}</span>
+                            <span>
+                              {`${formatTime(slot.time)} - ${formatEndTime(slot.time, courtDuration)}`}
+                            </span>
                             <i className="fa-regular fa-check-circle" />
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="col-12">No time slots available</div>
+                      <div className="col-12 py-4">No time slots available</div>
                     )}
                   </div>
                 </section>
@@ -382,6 +392,9 @@ const CourtTimeSlotsComponent = ({
                 courtData.pricing.starting_price * selectedSlots.length
               }
               slots={selectedSlots}
+              courtDuration={courtDuration}
+              progress={progress}
+              setProgress={setProgress}
             />
           </div>
         </div>

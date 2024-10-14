@@ -21,6 +21,15 @@ interface CourtPriceData {
   price_of_additional_guests: string;
 }
 
+interface CourtDurationData {
+  id: number;
+  court_id: number;
+  day_of_week: string;
+  duration: string;
+  start_time: string;
+  end_time: string;
+}
+
 interface CourtsData {
   id: number;
   user_id: number;
@@ -29,7 +38,10 @@ interface CourtsData {
   venue_overview: any;
   rules_of_venue: string;
   featured: boolean;
+  email: string;
+  m_name: string;
   locationData: LocationData;
   courtPriceData: CourtPriceData;
   courtImagesData: courtImagesData[];
+  courtAvailabilityData: CourtDurationData;
 }

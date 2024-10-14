@@ -7,6 +7,8 @@ import { all_routes } from "../../router/all_routes";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import Loader from "../../components/common/Loader";
+import AdminMenuComponent from "../../components/admin/adminMenu";
+import { Badge } from "primereact/badge";
 
 interface Location {
   country: string;
@@ -29,6 +31,7 @@ interface Court {
   venue_overview: string;
   status: string;
   court_id: string;
+  approved: boolean;
   images: string[];
 }
 
@@ -140,16 +143,18 @@ const AllCourt = () => {
     </div>
   );
 
-  const renderStatus = ({ status }: Court) => (
-    <div className="interset-btn">
-      <div className="status-toggle">
-        <input type="checkbox" id="status_1" className="check" />
-        <label htmlFor="status_1" className="checktoggle">
-          {status}
-        </label>
+  const renderStatus = ({ approved }: Court) => {
+    console.log(approved);
+    return (
+      <div className="interset-btn">
+        {approved ? (
+          <Badge value="Approved" severity="success" />
+        ) : (
+          <Badge value="Pending" severity="secondary" />
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderCourtType = ({ court_type }: Court) => <span>{court_type}</span>;
 
@@ -175,13 +180,15 @@ const AllCourt = () => {
       sortable: true,
     },
     {
-      field: "status",
+      field: "approved",
       header: "Status",
       body: renderStatus,
       sortable: true,
     },
     { body: renderActions, header: "Action" },
   ];
+
+  console.log(courtsData);
 
   const deleteCourt = async (courtId: string) => {
     // console.log(courtId, Number(adminId));
@@ -199,103 +206,11 @@ const AllCourt = () => {
   return (
     <div>
       <ToastContainer />
-      {/* Breadcrumb */}
-      <section className="breadcrumb breadcrumb-list mb-0">
-        <span className="primary-right-round" />
-        <div className="container">
-          <h1 className="text-white">Courts</h1>
-          <ul>
-            <li>
-              <Link to={routes.login}>Home</Link>
-            </li>
-            <li>Courts</li>
-          </ul>
-        </div>
-      </section>
-      {/* /Breadcrumb */}
       {/* Dashboard Menu */}
       <div className="dashboard-section coach-dash-section">
         <div className="container">
           <div className="row">
-            <div className="col-lg-12">
-              <div className="dashboard-menu coaurt-menu-dash">
-                <ul>
-                  <li>
-                    <Link to={routes.adminDashboard}>
-                      <ImageWithBasePath
-                        src="assets/img/icons/dashboard-icon.svg"
-                        alt="Icon"
-                      />
-                      <span>Dashboard</span>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to={routes.allCourt} className="active">
-                      <ImageWithBasePath
-                        src="assets/img/icons/court-icon.svg"
-                        alt="Icon"
-                      />
-                      <span> Courts</span>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to={"routes.coachRequest"}>
-                      <ImageWithBasePath
-                        src="assets/img/icons/request-icon.svg"
-                        alt="Icon"
-                      />
-                      <span>Requests</span>
-                      <span className="court-notify">03</span>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to={"routes.coachBooking"}>
-                      <ImageWithBasePath
-                        src="assets/img/icons/booking-icon.svg"
-                        alt="Icon"
-                      />
-                      <span>Bookings</span>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to={"routes.coachChat"}>
-                      <ImageWithBasePath
-                        src="assets/img/icons/chat-icon.svg"
-                        alt="Icon"
-                      />
-                      <span>Chat</span>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to={"routes.coachEarning"}>
-                      <ImageWithBasePath
-                        src="assets/img/icons/invoice-icon.svg"
-                        alt="Icon"
-                      />
-                      <span>Earnings</span>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to={"routes.coachWallet"}>
-                      <ImageWithBasePath
-                        src="assets/img/icons/wallet-icon.svg"
-                        alt="Icon"
-                      />
-                      <span>Wallet</span>
-                    </Link>
-                  </li>
-                  {/* <li>
-                    <Link to={routes.coachReview}>
-                      <ImageWithBasePath
-                        src="assets/img/icons/review-icon.svg"
-                        alt="Icon"
-                      />
-                      <span>Reviews</span>
-                    </Link>
-                  </li> */}
-                </ul>
-              </div>
-            </div>
+            <AdminMenuComponent />
           </div>
           <div className="row">
             <div className="col-lg-12">

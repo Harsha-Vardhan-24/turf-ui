@@ -38,13 +38,11 @@ const dayNames = [
 
 const OrderConfirmationPage = ({
   courtData,
-  courtImage,
   userDetails,
   selectedDate,
   selectedSlots,
 }: {
   courtData: CourtDataType;
-  courtImage: any;
   userDetails: UserDetailsFormData;
   selectedDate: any;
   selectedSlots: any;
@@ -77,12 +75,6 @@ const OrderConfirmationPage = ({
         {/* Page Content */}
         <div className="content">
           <div className="container">
-            <CourtDetailsComponent
-              courtData={courtData}
-              courtImage={courtImage}
-              contentTitle={undefined}
-              contentDescription={undefined}
-            />
             <section className="card booking-order-confirmation">
               <h5 className="mb-3">Booking Details</h5>
               <ul className="booking-info d-lg-flex gap-4 justify-content-start align-items-center">

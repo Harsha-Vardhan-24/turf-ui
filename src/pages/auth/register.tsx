@@ -61,7 +61,7 @@ const Signin = () => {
                             />
                           </Link>
                         </header>
-                        <div className="shadow-card">
+                        <div className="shadow-card mb-0">
                           <h2>Get Started With Dreamsports</h2>
                           <p>
                             Ignite your sports journey with DreamSports and get

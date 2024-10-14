@@ -1,12 +1,19 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ImageWithBasePath from "../../core/data/img/ImageWithBasePath";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import Slider from "react-slick";
 import axios from "axios";
-import Loader from "../../components/common/Loader";
 import { all_routes } from "../../router/all_routes";
+import { decimalNumber } from "../../utils/decimalNumber";
+import { toast, ToastContainer } from "react-toastify";
+import Loader from "../../components/common/Loader";
+import { formatTime } from "../../utils/formatTime";
+import { weekNames } from "../../utils/weekNames";
+import BulkBookingModal from "../../components/admin/bulk-booking-modal";
+import { getTimeSlotDuration } from "../../utils/getOperationalHours";
+import { HeartFilledIcon, HeartIcon } from "../../utils/icons";
 
 const CourtDetails = () => {
   const routes = all_routes;
@@ -14,17 +21,59 @@ const CourtDetails = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [images, setImages] = useState<any>([]);
   const [courtData, setCourtData] = useState<CourtDataType>();
+  const [userWishlist, setUserWishlist] = useState<number[]>([]);
+  console.log(courtData?.rules_of_venue);
 
+  const userId = useMemo(
+    () => localStorage.getItem("adminId") || localStorage.getItem("userId"),
+    []
+  );
+
+  const convertLiToArray = (htmlString: string) => {
+    // Create a temporary div element to hold the HTML
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = htmlString;
+
+    // Select all <li> elements inside the temporary div
+    const listItems = tempDiv.querySelectorAll("li");
+
+    // Extract the text content of each <li> and put it into an array
+    const listArray = Array.from(listItems).map((li) => li.textContent);
+
+    return listArray;
+  };
+
+  // Get the array of <li> values
+  const listArray = convertLiToArray(courtData?.rules_of_venue);
+
+  // Fetch user wishlist when userId changes
   useEffect(() => {
-    try {
-      setLoading(true);
-      const getCourtInfo = async () => {
+    const getUserWishList = async () => {
+      if (!userId) return;
+
+      try {
+        const { data } = await axios.get(
+          `${process.env.REACT_APP_BACKEND_URL}user/get/${userId}`
+        );
+        setUserWishlist(data.user.wishlist);
+      } catch (error) {
+        console.error("Error fetching user wishlist", error);
+      }
+    };
+
+    getUserWishList();
+  }, [userId]);
+
+  // Fetch court information when courtId changes
+  useEffect(() => {
+    const getCourtInfo = async (courtId: any) => {
+      setLoading(true); // Move setLoading inside the fetch
+      try {
         const response = await axios.get(
           `${process.env.REACT_APP_BACKEND_URL}court/fetch/${courtId}`
         );
         const fetchedCourtData = response.data.court;
 
-        // const fetchedImages = [];
         const fetchedImages = await Promise.all(
           fetchedCourtData.images.map(async (imageUrl: string) => {
             const imageBlob = await axios.get(imageUrl, {
@@ -35,18 +84,83 @@ const CourtDetails = () => {
           })
         );
 
-        console.log(fetchedImages);
-
         setImages(fetchedImages);
         setCourtData(fetchedCourtData);
-      };
-      getCourtInfo();
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
+      } catch (error) {
+        console.error("Error fetching court info", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (courtId) {
+      getCourtInfo(courtId);
     }
-  }, []);
+  }, [courtId]); // Run this effect only when courtId changes
+
+  const updateWishList = useCallback(
+    async (wishList: number[]) => {
+      if (!userId) return;
+
+      try {
+        await axios.put(
+          `${process.env.REACT_APP_BACKEND_URL}user/wishlist/update/${userId}`,
+          { wishList }
+        );
+      } catch (error) {
+        console.error("Error updating wishlist", error);
+        toast.error("Error Updating Wishlist");
+      }
+    },
+    [userId]
+  );
+
+  const handleItemClick = (courtId: number) => {
+    console.log(userWishlist?.includes(Number(courtId)));
+
+    if (!userWishlist || userWishlist.length === 0) {
+      // If userWishlist is null, undefined, or an empty array
+      setUserWishlist([Number(courtId)]);
+      updateWishList([Number(courtId)]);
+    } else {
+      if (userWishlist.includes(Number(courtId))) {
+        // Remove the item if it already exists in the wishlist
+        setUserWishlist((prevData) => {
+          const localWishList = prevData.filter((id) => id !== Number(courtId));
+          updateWishList(localWishList);
+          return localWishList;
+        });
+      } else {
+        // Add the item to the wishlist
+        setUserWishlist((prevData) => {
+          const localWishList = [...prevData, Number(courtId)];
+          updateWishList(localWishList);
+          return localWishList;
+        });
+      }
+    }
+  };
+
+  const handleShare = () => {
+    const shareData = {
+      title: courtData?.court_name,
+      text: courtData?.venue_overview,
+      url: window.location.href, // The current page URL or any specific URL you'd like to share
+    };
+
+    if (navigator.share) {
+      // Use the Web Share API
+      navigator
+        .share(shareData)
+        .then(() => console.log("Successful share"))
+        .catch((error) => console.log("Error sharing", error));
+    } else {
+      // Fallback: you can create custom URLs for social media sharing
+      alert("Sharing is not supported in this browser.");
+      // For example, redirect to a Twitter share URL:
+      // window.open(`https://twitter.com/share?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(shareData.text)}`);
+    }
+  };
 
   const imagesData = {
     dots: false,
@@ -65,19 +179,20 @@ const CourtDetails = () => {
     slidesToScroll: 1,
   };
 
-  const similarSettings = {
-    dots: false,
-    infinite: true,
-    speed: 500,
-    slidesToShow: 3,
-    slidesToScroll: 1,
-  };
-  // console.log(images);
+  const d = new Date();
+  const currentDay = weekNames[d.getDay()];
+  const operationalHours = getTimeSlotDuration(currentDay, courtData);
+
+  console.log(userWishlist);
+  // console.log(userWishlist.includes(Number(courtData?.court_id)));
+
   return (
     <div>
+      <ToastContainer />
+      <BulkBookingModal />
       {loading && <Loader />}
       {courtData && (
-        <>
+        <div>
           {/*Galler Slider Section*/}
           <div className="bannergallery-section">
             <div className="main-gallery-slider owl-carousel owl-theme">
@@ -89,6 +204,7 @@ const CourtDetails = () => {
                       <div key={idx} className="gallery-widget-item">
                         <Link to="#" data-fancybox="gallery1">
                           <img
+                            style={{ height: "400px", width: "798px" }}
                             className="img-fluid"
                             alt="Image"
                             src={img.url}
@@ -113,59 +229,58 @@ const CourtDetails = () => {
                 <div className="col-12 col-sm-12 col-md-12 col-lg-6">
                   <h1 className="d-flex align-items-center justify-content-start">
                     {courtData?.court_name}
-                    <span className="d-flex justify-content-center align-items-center">
-                      <i className="fas fa-check-double" />
-                    </span>
                   </h1>
                   <ul className="d-sm-flex justify-content-start align-items-center">
                     <li>
-                      <i className="feather-map-pin" />
-                      {`${courtData?.location.city}, ${courtData?.location.country}`}
+                      <a
+                        className="d-flex align-items-center justify-content-center" // Add align-items-center
+                        href={`tel:+91${courtData.phone_number}`}
+                      >
+                        <i className="feather-map-pin" />
+                        <p className="mb-0 ml-2 text-capitalize">
+                          {`${courtData?.location.city}, ${courtData?.location.country}`}
+                        </p>{" "}
+                        {/* Add margin to the paragraph */}
+                      </a>
                     </li>
                     <li>
-                      <i className="feather-phone-call" />
-                      +3 80992 31212
+                      <a
+                        className="d-flex align-items-center justify-content-center" // Add align-items-center
+                        href={`tel:+91${courtData.phone_number}`}
+                      >
+                        <i className="feather-phone-call" />
+                        <p className="mb-0 ml-2">
+                          +91 {courtData.phone_number}
+                        </p>{" "}
+                        {/* Add margin to the paragraph */}
+                      </a>
                     </li>
                     <li>
                       <i className="feather-mail" />
-                      <Link to="mailto:yourmail@example.com">
+                      <Link to={`mailto:${courtData.email}`}>
                         {" "}
-                        yourmail@example.com
+                        {courtData.email}
                       </Link>
                     </li>
                   </ul>
                 </div>
                 <div className="col-12 col-sm-12 col-md-12 col-lg-6 text-right">
-                  <ul className="social-options float-lg-end d-sm-flex justify-content-start align-items-center">
-                    <li>
+                  <ul className="float-lg-end d-sm-flex justify-content-start align-items-center gap-2">
+                    <li onClick={() => handleShare()}>
                       <Link to="#">
                         <i className="feather-share-2" />
                         Share
                       </Link>
                     </li>
-                    <li>
-                      <Link to="#" className="favour-adds">
-                        <i className="feather-star" />
+                    <li onClick={() => handleItemClick(courtData.court_id)}>
+                      <Link to="#" className="favour-adds d-flex gap-1">
+                        {userWishlist?.includes(Number(courtData.court_id)) ? (
+                          <HeartFilledIcon />
+                        ) : (
+                          <HeartIcon />
+                        )}
                         Add to favourite
                       </Link>
-                    </li>
-                    <li className="venue-review-info d-flex justify-content-start align-items-center">
-                      <span className="d-flex justify-content-center align-items-center">
-                        5.0
-                      </span>
-                      <div className="review">
-                        <div className="rating">
-                          <i className="fas fa-star filled" />
-                          <i className="fas fa-star filled" />
-                          <i className="fas fa-star filled" />
-                          <i className="fas fa-star filled" />
-                          <i className="fas fa-star filled" />
-                        </div>
-                        <p className="mb-0">
-                          <Link to="#">15 Reviews</Link>
-                        </p>
-                      </div>
-                      <i className="fa-regular fa-comments" />
                     </li>
                   </ul>
                 </div>
@@ -173,45 +288,14 @@ const CourtDetails = () => {
               <hr />
               <div className="row bottom-row d-flex align-items-center">
                 <div className="col-12 col-sm-12 col-md-6 col-lg-6">
-                  <ul className="d-sm-flex details">
-                    <li>
-                      <div className="profile-pic">
-                        <Link to="#" className="venue-type">
-                          <ImageWithBasePath
-                            className="img-fluid"
-                            src="assets/img/icons/venue-type.svg"
-                            alt="Icon"
-                          />
-                        </Link>
-                      </div>
-                      <div className="ms-2">
-                        <p>Venue Type</p>
-                        <h6 className="mb-0">Indoor</h6>
-                      </div>
-                    </li>
-                    <li>
-                      <div className="profile-pic">
-                        <Link to="#">
-                          <ImageWithBasePath
-                            className="img-fluid"
-                            src="assets/img/profiles/avatar-01.jpg"
-                            alt="Icon"
-                          />
-                        </Link>
-                      </div>
-                      <div className="ms-2">
-                        <p>Added By</p>
-                        <h6 className="mb-0">Hendry Williams</h6>
-                      </div>
-                    </li>
-                  </ul>
+                  <ul className="d-sm-flex details"></ul>
                 </div>
                 <div className="col-12 col-sm-12 col-md-6 col-lg-6">
                   <div className="d-flex float-sm-end align-items-center">
                     <p className="d-inline-block me-2 mb-0">Starts From :</p>
                     <h3 className="primary-text mb-0 d-inline-block">
-                      ₹{courtData?.pricing.starting_price}
-                      <span>/ hr</span>
+                      ₹{decimalNumber(courtData?.pricing.starting_price)}
+                      <span>/ slot</span>
                     </h3>
                   </div>
                 </div>
@@ -242,12 +326,13 @@ const CourtDetails = () => {
                         <Link to="#gallery">Gallery</Link>
                       </li>
                       <li>
-                        <Link to="#location">Locations</Link>
+                        <Link to="#location">Location</Link>
                       </li>
                     </ul>
                   </div>
                   {/* Accordian Contents */}
                   <div className="accordion" id="accordionPanel">
+                    {/* Overview */}
                     <div className="accordion-item mb-4" id="overview">
                       <h4
                         className="accordion-header"
@@ -280,6 +365,8 @@ const CourtDetails = () => {
                         </div>
                       </div>
                     </div>
+                    {/* Overview */}
+                    {/* Includes */}
                     <div className="accordion-item mb-4" id="includes">
                       <h4
                         className="accordion-header"
@@ -302,7 +389,7 @@ const CourtDetails = () => {
                         aria-labelledby="panelsStayOpen-includes"
                       >
                         <div className="accordion-body">
-                          <ul className="clearfix">
+                          <ul className="clearfix ">
                             {courtData?.includes.badminton_racket && (
                               <li>
                                 <i className="feather-check-square" />
@@ -349,6 +436,8 @@ const CourtDetails = () => {
                         </div>
                       </div>
                     </div>
+                    {/* Includes */}
+                    {/* Rules */}
                     <div className="accordion-item mb-4" id="rules">
                       <h4
                         className="accordion-header"
@@ -372,15 +461,30 @@ const CourtDetails = () => {
                       >
                         <div className="accordion-body">
                           <div className="text show-more-height">
-                            <div
-                              dangerouslySetInnerHTML={{
-                                __html: courtData?.rules_of_venue,
-                              }}
-                            />
+                            <div className="d-flex gap-1 align-items-center">
+                              <i className="feather-alert-octagon text-danger" />
+                              <p className="m-0">
+                                A maxium of{" "}
+                                {courtData.pricing.max_guests +
+                                  courtData.pricing.additional_guests}{" "}
+                                players are allowed per booking
+                              </p>
+                            </div>
+                            {listArray.map((rule, index) => (
+                              <div
+                                key={index}
+                                className="d-flex gap-1 align-items-center"
+                              >
+                                <i className="feather-alert-octagon text-danger" />
+                                <p className="m-0">{rule}</p>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
                     </div>
+                    {/* Rules */}
+                    {/* Amenities */}
                     <div className="accordion-item mb-4" id="amenities">
                       <h4
                         className="accordion-header"
@@ -403,7 +507,7 @@ const CourtDetails = () => {
                         aria-labelledby="panelsStayOpen-amenities"
                       >
                         <div className="accordion-body">
-                          <ul className="d-md-flex justify-content-between align-items-center">
+                          <ul className="d-md-flex gap-4 align-items-center">
                             {courtData?.amenities.parking && (
                               <li>
                                 <i
@@ -453,6 +557,8 @@ const CourtDetails = () => {
                         </div>
                       </div>
                     </div>
+                    {/* Amenities */}
+                    {/* Gallery */}
                     <div className="accordion-item mb-4" id="gallery">
                       <h4
                         className="accordion-header"
@@ -508,102 +614,14 @@ const CourtDetails = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="accordion-item" id="location">
-                      <h4
-                        className="accordion-header"
-                        id="panelsStayOpen-location"
-                      >
-                        <button
-                          className="accordion-button"
-                          type="button"
-                          data-bs-toggle="collapse"
-                          data-bs-target="#panelsStayOpen-collapseSeven"
-                          aria-expanded="false"
-                          aria-controls="panelsStayOpen-collapseSeven"
-                        >
-                          Location
-                        </button>
-                      </h4>
-                      <div
-                        id="panelsStayOpen-collapseSeven"
-                        className="accordion-collapse collapse show"
-                        aria-labelledby="panelsStayOpen-location"
-                      >
-                        <div className="accordion-body">
-                          <div className="google-maps">
-                            <iframe
-                              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2967.8862835683544!2d-73.98256668525309!3d41.93829486962529!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89dd0ee3286615b7%3A0x42bfa96cc2ce4381!2s132%20Kingston%20St%2C%20Kingston%2C%20NY%2012401%2C%20USA!5e0!3m2!1sen!2sin!4v1670922579281!5m2!1sen!2sin"
-                              height={445}
-                              style={{ border: 0 }}
-                              allowFullScreen
-                              loading="lazy"
-                              referrerPolicy="no-referrer-when-downgrade"
-                            />
-                          </div>
-                          <div className="dull-bg d-flex justify-content-start align-items-center mt-3">
-                            <div className="white-bg me-2">
-                              <i className="fas fa-location-arrow" />
-                            </div>
-                            <div>
-                              <h6>Our Venue Location</h6>
-                              <p>{`${courtData?.location.city}, ${courtData?.location.country}`}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    {/* Gallery */}
                   </div>
                   {/* Accordian Contents */}
                 </div>
                 <aside className="col-12 col-sm-12 col-md-12 col-lg-4 theiaStickySidebar">
                   <div className="stickybar">
-                    <div className="white-bg d-flex justify-content-start align-items-center availability">
-                      <div>
-                        <span className="icon-bg">
-                          <ImageWithBasePath
-                            className="img-fluid"
-                            alt="Icon"
-                            src="assets/img/icons/head-calendar.svg"
-                          />
-                        </span>
-                      </div>
-                      <div>
-                        <h4>Availability</h4>
-                        <p className="mb-0">
-                          Check availability on your convenient time
-                        </p>
-                      </div>
-                    </div>
+                    {/* Booking Buttons */}
                     <div className="white-bg book-court">
-                      <h4 className="border-bottom">Book A Court</h4>
-                      <h5 className="d-inline-block">Badminton Academy,</h5>
-                      <p className="d-inline-block"> available Now</p>
-                      <ul className="d-sm-flex align-items-center justify-content-evenly">
-                        <li>
-                          <h3 className="d-inline-block primary-text">
-                            {" "}
-                            ₹{courtData?.pricing.starting_price}
-                          </h3>
-                          <span>/hr</span>
-                          <p>up to {courtData?.pricing.max_guests} guests</p>
-                        </li>
-                        <li>
-                          <span>
-                            <i className="feather-plus" />
-                          </span>
-                        </li>
-                        <li>
-                          <h4 className="d-inline-block primary-text">
-                            ₹{courtData?.pricing.price_of_additional_guests}
-                          </h4>
-                          <span>/hr</span>
-                          <p>
-                            each additional guest <br />
-                            up to {courtData?.pricing.additional_guests} guests
-                            max
-                          </p>
-                        </li>
-                      </ul>
                       <div className="d-grid btn-block mt-3">
                         <Link
                           to={`${routes.courtDetailsLink}/${courtId}/booking`}
@@ -614,520 +632,129 @@ const CourtDetails = () => {
                         </Link>
                       </div>
                     </div>
-                    <div className="white-bg">
-                      <h4 className="border-bottom">
-                        Request for Availability
-                      </h4>
-                      <form>
-                        <div className="mb-10">
-                          <label htmlFor="name" className="form-label">
-                            Name
-                          </label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            id="name"
-                            placeholder="Enter Name"
-                          />
-                        </div>
-                        <div className="mb-10">
-                          <label htmlFor="email" className="form-label">
-                            Email
-                          </label>
-                          <input
-                            type="email"
-                            className="form-control"
-                            id="email"
-                            placeholder="Enter Email Address"
-                          />
-                        </div>
-                        <div className="mb-10">
-                          <label htmlFor="name" className="form-label">
-                            Phone Number
-                          </label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            id="phonenumber"
-                            placeholder="Enter Phone Number"
-                          />
-                        </div>
-                        <div className="mb-10">
-                          <label htmlFor="date" className="form-label">
-                            Date
-                          </label>
-                          <div className="form-icon">
-                            <input
-                              type="text"
-                              className="form-control datetimepicker"
-                              placeholder="Select Date"
-                              id="date"
-                            />
-                            <span className="cus-icon">
-                              <i className="feather-calendar" />
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mb-10">
-                          <label htmlFor="comments" className="form-label">
-                            Details
-                          </label>
-                          <textarea
-                            className="form-control"
-                            id="comments"
-                            rows={3}
-                            placeholder="Enter Comments"
-                            defaultValue={""}
-                          />
-                        </div>
+                    {/* Booking Buttons */}
+                    {/* Enquiry */}
+                    <div className="white-bg book-court">
+                      <a
+                        data-bs-toggle="modal"
+                        data-bs-target="#bulkBookingModal"
+                        className="d-flex justify-content-start align-items-center availability pe-auto"
+                      >
                         <div>
-                          <label className="form-label">Number of Guests</label>
-                          <div className="input-group">
-                            <input
-                              type="number"
-                              className="form-control"
-                              defaultValue={1}
-                              readOnly
-                            />
-                            <input
-                              type="number"
-                              className="form-control active"
-                              defaultValue={2}
-                              readOnly
-                            />
-                            <input
-                              type="number"
-                              className="form-control"
-                              defaultValue={3}
-                              readOnly
-                            />
-                            <input
-                              type="number"
-                              className="form-control"
-                              defaultValue={4}
-                              readOnly
-                            />
-                          </div>
-                        </div>
-                        <div className="form-check d-flex justify-content-start align-items-center policy">
-                          <div className="d-inline-block">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              id="policy"
-                              defaultChecked
-                            />
-                          </div>
-                          <label className="form-check-label" htmlFor="policy">
-                            By clicking &apos;Send Request&apos;, I agree to
-                            Dreamsport Privacy Policy and Terms of Use
-                          </label>
-                        </div>
-                        <div className="d-grid btn-block">
-                          <Link
-                            to="#"
-                            className="btn btn-secondary d-inline-flex justify-content-center align-items-center"
-                          >
-                            Send Request
-                            <i className="feather-arrow-right-circle ms-1" />
-                          </Link>
-                        </div>
-                      </form>
-                    </div>
-                    <div className="white-bg cage-owner-info">
-                      <h4 className="border-bottom">Cage Owner Details</h4>
-                      <div className="d-flex justify-content-start align-items-center">
-                        <div className="profile-pic">
-                          <Link to="#">
+                          <span className="icon-bg">
                             <ImageWithBasePath
                               className="img-fluid"
-                              alt="User"
-                              src="assets/img/profiles/avatar-05.jpg"
+                              alt="Icon"
+                              src="assets/img/icons/head-calendar.svg"
                             />
-                          </Link>
+                          </span>
                         </div>
                         <div>
-                          <h5>Hendry Williams</h5>
-                          <div className="rating">
-                            <i className="fas fa-star filled" />
-                            <i className="fas fa-star filled" />
-                            <i className="fas fa-star filled" />
-                            <i className="fas fa-star filled" />
-                            <i className="fas fa-star filled" />
-                            <span>5.0</span>
-                            <span>(20 Reviews)</span>
+                          <h4>Bulk/Corporate Booking</h4>
+                          <p className="mb-0">Contact to book in bulk.</p>
+                        </div>
+                      </a>
+                    </div>
+                    {/* Enquiry */}
+                    {/* Operational Hours */}
+                    <div className="white-bg book-court py-2">
+                      <h4 className="border-bottom">Operational Hours</h4>
+                      <p
+                        style={{ fontWeight: "semibold" }}
+                        className="d-inline-block"
+                      >
+                        {operationalHours && operationalHours}
+                      </p>
+                    </div>
+                    {/* Operational Hours */}
+                    {/* Location Details */}
+                    <div className="white-bg book-court">
+                      <div>
+                        <h4 className="border-bottom">Location Details</h4>
+                      </div>
+                      <div className="accordion-item" id="location">
+                        <div
+                          id="panelsStayOpen-collapseSeven"
+                          className="accordion-collapse collapse show"
+                          aria-labelledby="panelsStayOpen-location"
+                        >
+                          <div className="accordion-body p-0">
+                            <div
+                              className="google-maps"
+                              style={{ height: "300px", overflow: "hidden" }}
+                            >
+                              {courtData?.location?.embed_link ? (
+                                <div
+                                  style={{ height: "100%" }} // Ensure the inner div takes the full height
+                                  dangerouslySetInnerHTML={{
+                                    __html: courtData.location.embed_link,
+                                  }}
+                                ></div>
+                              ) : (
+                                <p>No map available</p>
+                              )}
+                            </div>
+                            <a
+                              className="dull-bg d-flex justify-content-start align-items-center mt-3 p-2 rounded"
+                              target="_blank"
+                              rel="noreferrer"
+                              href={courtData.location.location_link}
+                            >
+                              <div
+                                style={{ padding: "14px" }}
+                                className="white-bg me-2 mb-0 "
+                              >
+                                <i
+                                  style={{ fontSize: "24px" }}
+                                  className="fas fa-location-arrow text-success"
+                                />
+                              </div>
+                              <div>
+                                <h6>Our Venue Location</h6>
+                                <p className="text-capitalize">{`${courtData?.location.city}, ${courtData?.location.country}`}</p>
+                              </div>
+                            </a>
                           </div>
                         </div>
                       </div>
-                      <div className="d-grid btn-block text-center mt-3">
-                        <Link
-                          to="contact-us.html"
-                          className="btn btn-secondary d-inline-flex justify-content-center align-items-center"
-                        >
-                          <i className="feather-phone-call" />
-                          Call Owner
-                        </Link>
-                      </div>
                     </div>
-                    <div className="white-bg">
+                    {/* Location Details */}
+                    {/* Share Details */}
+                    <div className="white-bg book-court">
                       <h4 className="border-bottom">Share Venue</h4>
-                      <ul className="social-medias d-flex">
+                      <ul
+                        style={{
+                          backgroundColor: "white",
+                          padding: "0",
+                        }}
+                        className="social-medias d-flex"
+                      >
                         <li className="facebook">
                           <Link to="#">
-                            <i className="fa-brands fa-facebook-f" />
+                            <i className="mr-0 fa-brands fa-facebook-f" />
                           </Link>
                         </li>
                         <li className="instagram">
                           <Link to="#">
-                            <i className="fa-brands fa-instagram" />
+                            <i className="mr-0 fa-brands fa-instagram" />
                           </Link>
                         </li>
                         <li className="twitter">
                           <Link to="#">
-                            <i className="fa-brands fa-twitter" />
+                            <i className="mr-0 fa-brands fa-twitter" />
                           </Link>
                         </li>
                       </ul>
                     </div>
+                    {/* Share Details */}
                   </div>
                 </aside>
               </div>
               {/* /Row */}
             </div>
-            {/* /Container */}
-            <section className="section innerpagebg">
-              <div className="container">
-                <div className="featured-slider-group">
-                  <h3 className="mb-40">Similar Venues</h3>
-                  <div className="owl-carousel featured-venues-slider owl-theme">
-                    <Slider {...similarSettings}>
-                      {/* Featured Item */}
-                      <div className="featured-venues-item">
-                        <div className="listing-item mb-0">
-                          <div className="listing-img">
-                            <Link to="venue-details.html">
-                              <ImageWithBasePath
-                                src="assets/img/venues/venues-01.jpg"
-                                alt="Venue"
-                              />
-                            </Link>
-                            <div className="fav-item-venues">
-                              <span className="tag tag-blue">Featured</span>
-                              <h5 className="tag tag-primary">
-                                $450<span>/hr</span>
-                              </h5>
-                            </div>
-                          </div>
-                          <div className="listing-content">
-                            <div className="list-reviews">
-                              <div className="d-flex align-items-center">
-                                <span className="rating-bg">4.2</span>
-                                <span>300 Reviews</span>
-                              </div>
-                              <Link to="#" className="fav-icon">
-                                <i className="feather-heart" />
-                              </Link>
-                            </div>
-                            <h3 className="listing-title">
-                              <Link to="venue-details.html">
-                                Sarah Sports Academy
-                              </Link>
-                            </h3>
-                            <div className="listing-details-group">
-                              <p>
-                                Elevate your athletic journey at Sarah Sports
-                                Academy, where excellence meets opportunity.
-                              </p>
-                              <ul>
-                                <li>
-                                  <span>
-                                    <i className="feather-map-pin" />
-                                    Port Alsworth, AK
-                                  </span>
-                                </li>
-                                <li>
-                                  <span>
-                                    <i className="feather-calendar" />
-                                    Next Availablity :{" "}
-                                    <span className="primary-text">
-                                      15 May 2023
-                                    </span>
-                                  </span>
-                                </li>
-                              </ul>
-                            </div>
-                            <div className="listing-button">
-                              <div className="listing-venue-owner">
-                                <Link className="navigation" to="#">
-                                  <ImageWithBasePath
-                                    src="assets/img/profiles/avatar-01.jpg"
-                                    alt="User"
-                                  />
-                                  Mart Sublin
-                                </Link>
-                              </div>
-                              <Link
-                                to="venue-details.html"
-                                className="user-book-now"
-                              >
-                                <span>
-                                  <i className="feather-calendar me-2" />
-                                </span>
-                                Book Now
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {/* /Featured Item */}
-                      {/* Featured Item */}
-                      <div className="featured-venues-item">
-                        <div className="listing-item mb-0">
-                          <div className="listing-img">
-                            <Link to="venue-details.html">
-                              <ImageWithBasePath
-                                src="assets/img/venues/venues-02.jpg"
-                                className="img-fluid"
-                                alt="Venues"
-                              />
-                            </Link>
-                            <div className="fav-item-venues">
-                              <span className="tag tag-blue">Top Rated</span>
-                              <h5 className="tag tag-primary">
-                                $200<span>/hr</span>
-                              </h5>
-                            </div>
-                          </div>
-                          <div className="listing-content">
-                            <div className="list-reviews">
-                              <div className="d-flex align-items-center">
-                                <span className="rating-bg">5.0</span>
-                                <span>150 Reviews</span>
-                              </div>
-                              <Link to="#" className="fav-icon">
-                                <i className="feather-heart" />
-                              </Link>
-                            </div>
-                            <h3 className="listing-title">
-                              <Link to="venue-details.html">
-                                Badminton Academy
-                              </Link>
-                            </h3>
-                            <div className="listing-details-group">
-                              <p>
-                                Unleash your badminton potential at our premier
-                                Badminton Academy, where champions are made
-                              </p>
-                              <ul>
-                                <li>
-                                  <span>
-                                    <i className="feather-map-pin" />
-                                    Sacramento, CA
-                                  </span>
-                                </li>
-                                <li>
-                                  <span>
-                                    <i className="feather-calendar" />
-                                    Next Availablity :{" "}
-                                    <span className="primary-text">
-                                      15 May 2023
-                                    </span>
-                                  </span>
-                                </li>
-                              </ul>
-                            </div>
-                            <div className="listing-button">
-                              <div className="listing-venue-owner">
-                                <Link className="navigation" to={""}>
-                                  <ImageWithBasePath
-                                    src="assets/img/profiles/avatar-02.jpg"
-                                    alt="User"
-                                  />
-                                  Rebecca
-                                </Link>
-                              </div>
-                              <Link
-                                to="venue-details.html"
-                                className="user-book-now"
-                              >
-                                <span>
-                                  <i className="feather-calendar me-2" />
-                                </span>
-                                Book Now
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {/* /Featured Item */}
-                      {/* Featured Item */}
-                      <div className="featured-venues-item">
-                        <div className="listing-item mb-0">
-                          <div className="listing-img">
-                            <Link to="venue-details.html">
-                              <ImageWithBasePath
-                                src="assets/img/venues/venues-03.jpg"
-                                className="img-fluid"
-                                alt="Venues"
-                              />
-                            </Link>
-                            <div className="fav-item-venues">
-                              <h5 className="tag tag-primary">
-                                $350<span>/hr</span>
-                              </h5>
-                            </div>
-                          </div>
-                          <div className="listing-content">
-                            <div className="list-reviews">
-                              <div className="d-flex align-items-center">
-                                <span className="rating-bg">4.7</span>
-                                <span>120 Reviews</span>
-                              </div>
-                              <Link to="#" className="fav-icon">
-                                <i className="feather-heart" />
-                              </Link>
-                            </div>
-                            <h3 className="listing-title">
-                              <Link to="venue-details.html">
-                                Manchester Academy
-                              </Link>
-                            </h3>
-                            <div className="listing-details-group">
-                              <p>
-                                Manchester Academy: Where dreams meet excellence
-                                in sports education and training game.
-                              </p>
-                              <ul>
-                                <li>
-                                  <span>
-                                    <i className="feather-map-pin" />
-                                    Guysville, OH
-                                  </span>
-                                </li>
-                                <li>
-                                  <span>
-                                    <i className="feather-calendar" />
-                                    Next Availablity :{" "}
-                                    <span className="primary-text">
-                                      16 May 2023
-                                    </span>
-                                  </span>
-                                </li>
-                              </ul>
-                            </div>
-                            <div className="listing-button">
-                              <div className="listing-venue-owner">
-                                <Link className="navigation" to={""}>
-                                  <ImageWithBasePath
-                                    src="assets/img/profiles/avatar-03.jpg"
-                                    alt="User"
-                                  />
-                                  Andrew
-                                </Link>
-                              </div>
-                              <Link
-                                to="venue-details.html"
-                                className="user-book-now"
-                              >
-                                <span>
-                                  <i className="feather-calendar me-2" />
-                                </span>
-                                Book Now
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {/* /Featured Item */}
-                      {/* Featured Item */}
-                      <div className="featured-venues-item">
-                        <div className="listing-item mb-0">
-                          <div className="listing-img">
-                            <Link to="venue-details.html">
-                              <ImageWithBasePath
-                                src="assets/img/venues/venues-02.jpg"
-                                className="img-fluid"
-                                alt="Venues"
-                              />
-                            </Link>
-                            <div className="fav-item-venues">
-                              <span className="tag tag-blue">Featured</span>
-                              <h5 className="tag tag-primary">
-                                $450<span>/hr</span>
-                              </h5>
-                            </div>
-                          </div>
-                          <div className="listing-content">
-                            <div className="list-reviews">
-                              <div className="d-flex align-items-center">
-                                <span className="rating-bg">4.5</span>
-                                <span>300 Reviews</span>
-                              </div>
-                              <Link to="#" className="fav-icon">
-                                <i className="feather-heart" />
-                              </Link>
-                            </div>
-                            <h3 className="listing-title">
-                              <Link to="venue-details.html">
-                                ABC Sports Academy
-                              </Link>
-                            </h3>
-                            <div className="listing-details-group">
-                              <p>
-                                Lorem Ipsum is simply dummy text of the printing
-                                and typesetting industry.industry&apos;s
-                                standard
-                              </p>
-                              <ul>
-                                <li>
-                                  <span>
-                                    <i className="feather-map-pin" />
-                                    Little Rock, AR
-                                  </span>
-                                </li>
-                                <li>
-                                  <span>
-                                    <i className="feather-calendar" />
-                                    Next Availablity :{" "}
-                                    <span className="primary-text">
-                                      17 May 2023
-                                    </span>
-                                  </span>
-                                </li>
-                              </ul>
-                            </div>
-                            <div className="listing-button">
-                              <div className="listing-venue-owner">
-                                <Link className="navigation" to={""}>
-                                  <ImageWithBasePath
-                                    src="assets/img/profiles/avatar-04.jpg"
-                                    alt="User"
-                                  />
-                                  Mart Sublin
-                                </Link>
-                              </div>
-                              <Link
-                                to="venue-details.html"
-                                className="user-book-now"
-                              >
-                                <span>
-                                  <i className="feather-calendar me-2" />
-                                </span>
-                                Book Now
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {/* /Featured Item */}
-                    </Slider>
-                  </div>
-                </div>
-              </div>
-            </section>
           </div>
           {/* /Page Content */}
-        </>
+        </div>
       )}
     </div>
   );

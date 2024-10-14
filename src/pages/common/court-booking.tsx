@@ -1,28 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import ImageWithBasePath from "../../core/data/img/ImageWithBasePath";
+import { useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { all_routes } from "../../router/all_routes";
-import CourtDetailsComponent from "../../components/common/court/court-details-component";
 import axios from "axios";
 import Loader from "../../components/common/Loader";
 import CourtTimeSlotsComponent from "../../components/common/court/court-timeslots-component";
-import UserDetailsComponent from "../../components/common/court/user-details-component";
-import OrderConfirmationPage from "../../components/common/court/court-order-confirm";
 import CourtCheckout from "../../components/common/court/court-checkout";
-
-const timeSlotsContent = {
-  title: "Book A Court",
-  description: "Hassle-free court bookings and state-of-the-art facilities.",
-};
-
-interface UserDetailsFormData {
-  name: string;
-  email: string;
-  phonenumber: string;
-  address: string;
-}
+import { UserDetailsFormData } from "../../utils/types/userDetailsBookingForm";
+import BookingHeader from "../../components/common/booking-header";
 
 const CourtBooking = () => {
   const { courtId } = useParams();
@@ -32,6 +18,7 @@ const CourtBooking = () => {
   const [progress, setProgress] = useState<number>(0);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedSlots, setSetselectedSlots] = useState<any>([]);
+  const [courtDuration, setCourtDuration] = useState<string>("");
   const [userDetails, setUserDetails] = useState<UserDetailsFormData>();
 
   useEffect(() => {
@@ -64,7 +51,28 @@ const CourtBooking = () => {
     }
   }, []);
 
-  // console.log(courtData);
+  useEffect(() => {
+    if (courtData && courtData.time_Slots && selectedDate) {
+      const dayOfWeek = selectedDate
+        .toLocaleString("en-US", { weekday: "long" })
+        .toLowerCase();
+
+      // Find the time slot for the selected day
+      const matchedSlot = courtData.time_Slots.find(
+        (slot) => slot.day_of_week.toLowerCase() === dayOfWeek
+      );
+
+      if (matchedSlot) {
+        setCourtDuration(matchedSlot.duration.replace(" Hrs", "") || "N/A");
+      } else {
+        setCourtDuration("N/A");
+      }
+    }
+  }, [courtData, selectedDate]);
+
+  // console.log(selectedSlots);
+
+  // // console.log(courtData);
 
   const routes = all_routes;
 
@@ -84,112 +92,62 @@ const CourtBooking = () => {
 
   return (
     <div>
-      {/* Breadcrumb */}
-      <div className="breadcrumb mb-0">
-        <span className="primary-right-round" />
-        <div className="container">
-          <h1 className="text-white">Book A Court</h1>
-          <ul>
-            <li>
-              <Link to={"routes.home"}>Home</Link>
-            </li>
-            <li>Book A Court</li>
-          </ul>
-        </div>
-      </div>
       {loading && <Loader />}
       {courtData && (
         <React.Fragment>
-          {/* /Breadcrumb */}
-          <section className="booking-steps py-30">
-            <div className="container">
-              <ul className="d-lg-flex justify-content-center align-items-center">
-                <li className={`${progress === 0 && "active"}`}>
-                  <h5>
-                    <Link to="#">
-                      <span>1</span>Book a Court
-                    </Link>
-                  </h5>
-                </li>
-                <li className={`${progress === 1 && "active"}`}>
-                  <h5>
-                    <Link to="#">
-                      <span>2</span>Time & Date
-                    </Link>
-                  </h5>
-                </li>
-                <li className={`${progress === 2 && "active"}`}>
-                  <h5>
-                    <Link to="#">
-                      <span>3</span>Personal Information
-                    </Link>
-                  </h5>
-                </li>
-                <li className={`${progress === 3 && "active"}`}>
-                  <h5>
-                    <Link to="#">
-                      <span>4</span>Order Confirmation
-                    </Link>
-                  </h5>
-                </li>
-                <li className={`${progress === 4 && "active"}`}>
-                  <h5>
-                    <Link to="#">
-                      <span>4</span>Payment
-                    </Link>
-                  </h5>
-                </li>
-              </ul>
-            </div>
-          </section>
+          <BookingHeader
+            progress={progress}
+            setProgress={setProgress}
+            courtDuration={courtDuration}
+            courtData={courtData}
+            courtImage={images[0].url}
+            selectedSlots={selectedSlots}
+            selectedDate={selectedDate}
+            userDetails={userDetails}
+          />
           {/* Page Content */}
           <div className="content book-cage">
             <div className="container">
               {courtData && progress === 0 && (
-                <CourtDetailsComponent
-                  courtData={courtData}
-                  courtImage={images[0].url}
-                  contentTitle={timeSlotsContent.title}
-                  contentDescription={timeSlotsContent.description}
-                />
-              )}
-              {courtData && progress === 1 && (
                 <CourtTimeSlotsComponent
+                  progress={progress}
+                  setProgress={setProgress}
                   courtData={courtData}
                   courtImage={images[0].url}
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                   selectedSlots={selectedSlots}
                   setSetselectedSlots={setSetselectedSlots}
+                  courtDuration={courtDuration}
                 />
               )}
-              {selectedDate && selectedSlots && progress === 2 && (
-                <UserDetailsComponent
-                  updateProgress={updateProgress}
-                  setUserDetails={setUserDetails}
-                />
+              {selectedDate && selectedSlots && progress === 1 && (
+                <>
+                  <CourtCheckout
+                    courtData={courtData}
+                    courtImage={images[0].url}
+                    userDetails={userDetails}
+                    selectedDate={selectedDate}
+                    selectedSlots={selectedSlots}
+                    setUserDetails={setUserDetails}
+                    courtDuration={courtDuration}
+                    courtId={courtId}
+                  />
+                </>
               )}
-              {userDetails && progress === 3 && (
-                <OrderConfirmationPage
-                  courtData={courtData}
-                  courtImage={images[0].url}
-                  userDetails={userDetails}
-                  selectedDate={selectedDate}
-                  selectedSlots={selectedSlots}
-                />
-              )}
-              {progress === 4 && (
-                <CourtCheckout
-                  courtData={courtData}
-                  courtImage={images[0].url}
-                  userDetails={userDetails}
-                  selectedDate={selectedDate}
-                  selectedSlots={selectedSlots}
-                  courtId={courtId}
-                />
-              )}
-              {progress !== 2 && (
-                <div className="text-center btn-row">
+              {/* {
+                <div
+                  style={{
+                    position: "fixed",
+                    bottom: "0",
+                    left: "0",
+                    width: "100%",
+                    backgroundColor: "#fff", // Optional: Add background color to ensure it's visible
+                    padding: "10px", // Optional: Add padding for spacing
+                    // zIndex: 1000, // Optional: Ensure it's above other elements
+                  }}
+                  className="text-center btn-row"
+                >
                   <button
                     className={`btn btn-secondary btn-icon me-3 ${progress === 0 ? "pe-none" : ""}`}
                     // className="btn btn-primary me-3 btn-icon"
@@ -199,15 +157,15 @@ const CourtBooking = () => {
                     <i className="feather-arrow-left-circle me-1" /> Back
                   </button>
                   <button
-                    type={`${progress === 2 ? "submit" : "button"}`}
-                    disabled={progress === 4}
-                    className={`btn btn-secondary btn-icon ${progress === 4 ? "pe-none" : ""}`}
+                    type={`${progress === 1 ? "submit" : "button"}`}
+                    disabled={progress === 1 || selectedSlots.length === 0}
+                    className={`btn btn-secondary btn-icon ${progress === 1 ? "pe-none" : ""}`}
                     onClick={() => updateProgress("next")}
                   >
                     Next <i className="feather-arrow-right-circle ms-1" />
                   </button>
                 </div>
-              )}
+              } */}
             </div>
             {/* /Container */}
           </div>

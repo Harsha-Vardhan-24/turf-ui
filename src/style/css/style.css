@@ -14146,3 +14146,15 @@ span.icon-bg-40 img {
 }
 
 /*# sourceMappingURL=style.css.map */
+
+/* Custom CSS */
+
+.header-nav-location-comp {
+  background-color: "#f1f3f2";
+  border-radius: 10px;
+  padding: 5px 15px;
+  color: "#707874";
+}
+.ui-rating a {
+  color: blue !important;
+}

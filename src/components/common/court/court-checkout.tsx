@@ -1,5 +1,5 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import ImageWithBasePath from "../../../core/data/img/ImageWithBasePath";
 import { all_routes } from "../../../router/all_routes";
 import CourtDetailsComponent from "./court-details-component";
@@ -7,28 +7,16 @@ import { useForm, Controller } from "react-hook-form";
 import { nanoid } from "nanoid";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
-
-interface UserDetailsFormData {
-  name: string;
-  email: string;
-  phonenumber: string;
-  address: string;
-}
-
-const monthNames = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
+import UserDetailsComponent from "./user-details-component";
+import OrderConfirmationPage from "./court-order-confirm";
+import { formatEndTime } from "../../../utils/formatEndTime";
+import { monthNames } from "../../../utils/monthNames";
+import { UserDetailsFormData } from "../../../utils/types/userDetailsBookingForm";
+import ButtonLoader from "../button-loader";
+import AdminDetailsComponent from "./admin-details-component";
+import { decimalNumber } from "../../../utils/decimalNumber";
+import BookingConfirmModal from "../../admin/booking-confirm";
+import { register } from "module";
 
 const CourtCheckout = ({
   courtData,
@@ -37,63 +25,91 @@ const CourtCheckout = ({
   selectedDate,
   selectedSlots,
   courtId,
+  setUserDetails,
+  courtDuration,
 }: {
   courtData: CourtDataType;
   courtImage: any;
   userDetails: any;
   selectedDate: any;
   selectedSlots: any;
+  setUserDetails: any;
   courtId: any;
+  courtDuration: any;
 }) => {
-  const { control, handleSubmit, watch } = useForm();
+  const { register, control, handleSubmit, watch } = useForm();
+  const [errors, setErrors] = useState<any>();
+  const [loading, setLoading] = useState<boolean>(false);
+  const [isValid, setIsValid] = useState<boolean>();
+  const [adminLoading, setAdminLoading] = useState<boolean>(false);
+  const [toggleModal, setToggleModal] = useState<boolean>(false);
+  const [isCourtAdmin, setIsCourtAdmin] = useState<boolean>(false);
 
   const policy = watch("policy");
 
-  const routes = all_routes;
-  const month = monthNames[selectedDate.getMonth()];
-  const date = selectedDate.getDate();
-  const year = selectedDate.getFullYear();
-  const serviceCharge = 100;
+  // const month = monthNames[selectedDate.getMonth()];
+  // const date = selectedDate.getDate();
+  // const year = selectedDate.getFullYear();
+  // const isAdmin = localStorage.getItem("adminId");
+  const serviceCharge = Number(process.env.REACT_APP_SERVICE_CHARGE) || 0;
+  const gstCharge = Number(process.env.REACT_APP_GST_CHARGE) || 0; // Assume this is a percentage like 18 for 18%
+  const baseFee = Number(process.env.REACT_APP_BASE_FEE);
+  const additionalUserCharge =
+    (Number(userDetails?.additionalNumberOfGuests) || 0) *
+    (Number(courtData?.pricing?.price_of_additional_guests) || 0);
+  const startingPrice = Number(courtData.pricing.starting_price) || 0;
+  const selectedSlotCount = selectedSlots.length || 0;
 
-  // Helper to format time to 12-hour format
-  const formatTime = (time: string) => {
-    if (time) {
-      const [hours, minutes] = time.split(":");
-      const hour = parseInt(hours, 10);
-      const suffix = hour >= 12 ? "PM" : "AM";
-      const formattedHour = hour % 12 || 12; // Convert to 12-hour format
-      return `${formattedHour}:${minutes} ${suffix}`;
+  const checkIfCourtIsAdminCourt = async (adminId: string) => {
+    try {
+      setLoading(true);
+      const response = await axios.get(
+        `${process.env.REACT_APP_BACKEND_URL}admin/court/fetch/${adminId}/${courtData.court_id}`
+      );
+      response.status === 404 ? setIsCourtAdmin(false) : setIsCourtAdmin(true);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
-    return "0:00 AM";
   };
 
-  // Filter out only the slots that are checked (isChecked: true)
-  const checkedSlots = selectedSlots.filter((slot: any) => slot.slot.isChecked);
+  useEffect(() => {
+    const adminId = localStorage.getItem("adminId");
+    if (adminId) {
+      checkIfCourtIsAdminCourt(adminId);
+    }
+  }, []);
 
-  // Extract the times of the checked slots and sort them
-  const sortedTimes = checkedSlots
-    .map((slot: any) => slot.slot.time)
-    .sort((a: string, b: string) => (a > b ? 1 : -1));
+  const totalPriceWithoutGST =
+    startingPrice * selectedSlotCount + additionalUserCharge;
 
-  // Get the start time and end time
-  const bookingStartTime =
-    sortedTimes.length > 0 ? formatTime(sortedTimes[0]) : "00:00 AM";
-  const bookingEndTime =
-    sortedTimes.length > 0
-      ? formatTime(sortedTimes[sortedTimes.length - 1])
-      : "00:00 AM";
-  const totalPrice =
-    courtData.pricing.starting_price * selectedSlots.length + serviceCharge;
+  // GST is applied as a percentage of the total price before GST
+  const gstAmount = (gstCharge / 100) * totalPriceWithoutGST;
 
-  const onSubmit = async (data: any) => {
-    console.log(data);
+  // base fee
+  const baseAmount = (baseFee / 100) * startingPrice * selectedSlotCount;
+
+  const totalPrice = totalPriceWithoutGST + gstAmount;
+
+  // const advanceAmountAdmin = Number(courtData.pricing.advance_pay);
+
+  const advanceAmount =
+    (Number(courtData.pricing.advance_pay) / 100) * totalPrice;
+
+  // Function to handle API call for default payment method
+  const onlinePay = async (data: any) => {
+    console.log("Trig");
+
+    // if (isValid) {
     const updatedData = {
-      name: "Random Name",
-      amount: totalPrice,
-      number: "87908770087",
-      MID: "M-" + nanoid(10),
-      transactionId: "T-" + nanoid(10),
-      userId: "U-" + nanoid(10),
+      // name: "Random Name",
+      amount: advanceAmount,
+      amountTobePaid: Number(Math.round(totalPrice - advanceAmount)),
+      courtDuration: courtDuration,
+      // number: "87908770087",
+      MID: nanoid(10),
+      transactionId: nanoid(10),
       userDetails,
       selectedDate,
       selectedSlots,
@@ -103,144 +119,304 @@ const CourtCheckout = ({
         localStorage.getItem("userId") ||
         null,
     };
-    console.log(updatedData);
+
     if (data.policy) {
       try {
+        setLoading(true);
         const response = await axios.post(
           `${process.env.REACT_APP_BACKEND_URL}payment`,
           updatedData
         );
 
-        // Log the full response data to inspect its structure
-        console.log("Full response data:", response.data);
-
-        // Assuming the URL might be inside response.data.data
         const redirectUrl =
           response.data?.data?.instrumentResponse?.redirectInfo?.url;
 
-        // Log the value of redirectUrl, which may be undefined if not present
-        console.log("Redirect URL:", redirectUrl);
-
-        // Redirect if the URL is valid, otherwise show an error toast
         if (redirectUrl) {
           window.location.href = redirectUrl;
         } else {
           toast.error("Error booking slot");
         }
-
-        console.log("Final response data:", response.data);
       } catch (error) {
         console.error("Error during payment:", error);
+      } finally {
+        setLoading(false);
       }
     }
+    // }
   };
 
+  // Function to handle API call for CASH payment method
+  const onCashPayment = async () => {
+    // if (isValid) {
+    const cashData = {
+      courtDuration: courtDuration,
+      amount: totalPrice,
+      paymentMethod: "CASH",
+      transactionId: nanoid(10),
+      userDetails,
+      selectedDate,
+      selectedSlots,
+      courtId: Number(courtId),
+      user_id:
+        localStorage.getItem("adminId") ||
+        localStorage.getItem("userId") ||
+        null,
+    };
+
+    try {
+      setAdminLoading(true);
+      const response = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}payment/admin`,
+        cashData
+      );
+      if (response.status === 200) {
+        setToggleModal(true);
+      } else {
+        toast.error("Error processing cash booking.");
+      }
+    } catch (error) {
+      console.error("Error during CASH payment:", error);
+      toast.error("Error processing cash booking.");
+    } finally {
+      setAdminLoading(false);
+    }
+    // }
+  };
+
+  // const disableCheck = policy && Object.keys(errors).length === 0 && isValid;
+  // const disableCheck = isValid;
   return (
     <div>
-      {/* Page Content */}
       <ToastContainer />
-      <div className="content">
+      {toggleModal && <BookingConfirmModal toggleModal={toggleModal} />}
+      <div className="content pt-0">
         <div className="container">
           <section>
-            <div className="text-center mb-40">
-              <h3 className="mb-1">Payment</h3>
-              <p className="sub-title mb-0">
-                Secure your booking, complete payment, and enjoy our
-                sophisticated facilities
-              </p>
-            </div>
-            <CourtDetailsComponent
-              courtData={courtData}
-              courtImage={courtImage}
-              contentTitle={undefined}
-              contentDescription={undefined}
-            />
             <div className="row checkout">
-              <div className="col-12 col-sm-12 col-md-12 col-lg-7">
-                <div className="card booking-details">
-                  <h3 className="border-bottom">Order Summary</h3>
-                  <ul className="list-unstyled">
-                    <li>
-                      <i className="fa-regular fa-building me-2" />
-                      {courtData.court_name}
-                      <span className="x-circle" />
-                    </li>
-                    <li>
-                      <i className="feather-calendar me-2" />
-                      {date}, {month} {year}
-                    </li>
-                    <li>
-                      <i className="feather-clock me-2" />
-                      {bookingStartTime} to {bookingEndTime}
-                    </li>
-                  </ul>
+              <div className="d-flex">
+                {/* Form Data collection */}
+                <div className="col-12 col-sm-12 col-md-12 col-lg-7">
+                  {isCourtAdmin ? (
+                    <AdminDetailsComponent
+                      setErrors={setErrors}
+                      setIsValid={setIsValid}
+                      courtData={courtData}
+                      setUserDetails={setUserDetails}
+                    />
+                  ) : (
+                    <UserDetailsComponent
+                      setErrors={setErrors}
+                      setIsValid={setIsValid}
+                      courtData={courtData}
+                      setUserDetails={setUserDetails}
+                    />
+                  )}
                 </div>
-              </div>
-              <div className="col-12 col-sm-12 col-md-12 col-lg-5">
-                <aside className="card payment-modes">
-                  <h3 className="border-bottom">Checkout</h3>
-                  <ul className="order-sub-total">
-                    <li>
-                      <p>Sub total</p>
-                      <h6>
-                        ₹
-                        {courtData.pricing.starting_price *
-                          selectedSlots.length}
-                      </h6>
-                    </li>
-                    <li>
-                      <p>Service charge</p>
-                      <h6>₹{serviceCharge}</h6>
-                    </li>
-                  </ul>
-                  <div className="order-total d-flex justify-content-between align-items-center">
-                    <h5>Order Total</h5>
-                    <h5>₹{totalPrice}</h5>
-                  </div>
-                  <form onSubmit={handleSubmit(onSubmit)}>
-                    <div className="form-check d-flex justify-content-start align-items-center policy">
-                      <div className="d-inline-block">
-                        <Controller
-                          name="policy" // The name for your checkbox
-                          control={control}
-                          defaultValue={false} // Default value for the checkbox
-                          render={({ field }) => (
+                <div>
+                  {/* Original CheckOut */}
+                  <div className="col-12 col-sm-12 col-md-12 col-lg-12">
+                    <aside className="card payment-modes">
+                      <h3 className="border-bottom">Checkout</h3>
+                      <div className="px-2 d-flex justify-content-between align-items-center">
+                        <h5>Location Fee</h5>
+                        <h5>
+                          ₹
+                          {decimalNumber(
+                            courtData.pricing.starting_price *
+                              selectedSlots.length
+                          )}
+                        </h5>
+                      </div>
+                      <div className="px-2 pt-2 d-flex justify-content-between align-items-center">
+                        <h5>Convience Fee</h5>
+                        <h5>₹{decimalNumber(gstAmount + baseAmount)}</h5>
+                      </div>
+                      {/* Accordion */}
+                      <div>
+                        <div className="ask-questions">
+                          <div className="faq-info">
+                            {/* Dropdown */}
+                            <div className="px-2" id="accordionMain2">
+                              <div className="" id="headingTwo">
+                                <h6 className="">
+                                  <Link
+                                    to="#"
+                                    className="w-100 collapsed text-success d-flex justify-content-between"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#collapseTwo"
+                                    aria-expanded="true"
+                                    aria-controls="collapseTwo"
+                                    style={{ fontSize: "12px" }}
+                                  >
+                                    Price breakdown
+                                  </Link>
+                                </h6>
+                              </div>
+                              <div
+                                id="collapseTwo"
+                                className="collapse"
+                                aria-labelledby="headingTwo"
+                                data-bs-parent="#accordionExample2"
+                              >
+                                <div className="card-body-chat gap-2">
+                                  <div className="d-flex justify-content-between price-breakdown">
+                                    <p className="m-0 pb-2">GST Charge</p>
+                                    <p className="m-0 pb-2">
+                                      ₹{decimalNumber(gstAmount)}
+                                    </p>
+                                  </div>
+                                  <div className="d-flex justify-content-between price-breakdown">
+                                    <p className="m-0 pb-2">
+                                      Base Fee ( 2% of court price )
+                                    </p>
+                                    <p className="m-0 pb-2">
+                                      ₹{decimalNumber(baseAmount)}
+                                    </p>
+                                  </div>
+                                  {userDetails &&
+                                    userDetails.additionalNumberOfGuests >
+                                      0 && (
+                                      <div className="d-flex justify-content-between price-breakdown">
+                                        <p className="m-0 pb-2">
+                                          Additional Guest Charge ({" "}
+                                          {userDetails.additionalNumberOfGuests}{" "}
+                                          *{" "}
+                                          {
+                                            courtData.pricing
+                                              .price_of_additional_guests
+                                          }{" "}
+                                          )
+                                        </p>
+                                        <p className="m-0 pb-2">
+                                          ₹{decimalNumber(additionalUserCharge)}
+                                        </p>
+                                      </div>
+                                    )}
+                                  <div className="sorting-select"></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {!isCourtAdmin && (
+                        <div className="px-2 pt-2 d-flex justify-content-between align-items-center">
+                          <h5>Order Total</h5>
+                          <h5 className="pb-2">
+                            ₹ {decimalNumber(totalPrice)}
+                          </h5>
+                        </div>
+                      )}
+                      {/* Total */}
+                      <div className="order-total d-flex justify-content-between align-items-center">
+                        {!isCourtAdmin &&
+                        Number(courtData.pricing.advance_pay) !== 100 ? (
+                          <>
+                            <div>
+                              <h5 className="text-primary pb-2">
+                                ₹ {decimalNumber(advanceAmount)}
+                              </h5>
+                              <h6
+                                className="text-primary"
+                                style={{ fontSize: "12px", fontWeight: "400" }}
+                              >
+                                Pay Now
+                              </h6>
+                            </div>
+                            <div>
+                              <h5 className="pb-2">
+                                ₹{" "}
+                                {decimalNumber(
+                                  Math.round(totalPrice - advanceAmount)
+                                )}
+                              </h5>
+                              <h6
+                                style={{
+                                  fontSize: "12px",
+                                  fontWeight: "400",
+                                }}
+                              >
+                                Pay at Venue
+                              </h6>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <h5>Order Total</h5>
+                            <h5 className="pb-2">
+                              ₹ {decimalNumber(totalPrice)}
+                            </h5>
+                          </>
+                        )}
+                      </div>
+
+                      <form onSubmit={handleSubmit(onlinePay)}>
+                        <div className="form-check d-flex justify-content-start align-items-center policy m-0 mb-2">
+                          <div className="d-inline-block">
                             <input
                               className="form-check-input"
                               type="checkbox"
                               id="policy"
-                              {...field} // Spread the field props to the input
+                              {...register("policy", {
+                                required: "You must agree to the policy",
+                              })}
                             />
+
+                            {errors?.policy && (
+                              <p className="text-danger">
+                                {errors.policy.message}
+                              </p>
+                            )}
+                          </div>
+                          <label className="form-check-label" htmlFor="policy">
+                            By checking this box, I agree to the{" "}
+                            <Link to="privacy-policy">Privacy Policy</Link>,{" "}
+                            <Link to="terms-condition">Refund Policy</Link>, and{" "}
+                            <Link to="terms-condition">
+                              Terms & Conditions.
+                            </Link>
+                          </label>
+                        </div>
+                        {!policy && (
+                          <p className="text-danger">
+                            Please check this box in order to complete booking
+                          </p>
+                        )}
+                        <div className="d-grid btn-block">
+                          {isCourtAdmin && (
+                            <button
+                              type="button"
+                              className="mb-2 btn btn-primary"
+                              // disabled={!disableCheck}
+                              onClick={onCashPayment} // Trigger onCashPayment when clicked
+                              // data-bs-toggle="modal"
+                              // data-bs-target="#bookingconfirmModal"
+                            >
+                              {adminLoading ? (
+                                <ButtonLoader />
+                              ) : (
+                                "Reserve Now (CASH)"
+                              )}
+                            </button>
                           )}
-                        />
-                      </div>
-                      <label className="form-check-label" htmlFor="policy">
-                        By clicking &apos;Send Request&apos;, I agree to
-                        Dreamsport{" "}
-                        <Link to="privacy-policy">Privacy Policy</Link> and{" "}
-                        <Link to="terms-condition">Terms of Use</Link>
-                      </label>
-                    </div>
-                    <div className="d-grid btn-block">
-                      <button
-                        type="submit"
-                        className={`btn ${!policy ? "bg-black" : "btn-primary"}`}
-                        disabled={!policy}
-                        // data-bs-toggle="modal"
-                        // data-bs-target="#bookingconfirmModal"
-                      >
-                        Book Now
-                      </button>
-                    </div>
-                  </form>
-                </aside>
+                          {!isCourtAdmin && (
+                            <button
+                              type="submit"
+                              className="mb-2 btn btn-primary"
+                            >
+                              {loading ? <ButtonLoader /> : "Reserve Now"}
+                            </button>
+                          )}
+                        </div>
+                      </form>
+                    </aside>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
         </div>
-        {/* /Container */}
       </div>
-      {/* /Page Content */}
     </div>
   );
 };

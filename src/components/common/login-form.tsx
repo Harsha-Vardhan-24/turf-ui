@@ -6,6 +6,8 @@ import { toast } from "react-toastify";
 import { Link, useNavigate } from "react-router-dom";
 import ImageWithBasePath from "../../core/data/img/ImageWithBasePath";
 import { all_routes } from "../../router/all_routes";
+import Loader from "./Loader";
+import ButtonLoader from "./button-loader";
 
 const LoginFormComponent = () => {
   const navigate = useNavigate();
@@ -17,6 +19,7 @@ const LoginFormComponent = () => {
   } = useForm();
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState<boolean>(false);
 
   const togglePasswordVisibility = () => {
     setPasswordVisible((prev) => !prev);
@@ -24,21 +27,36 @@ const LoginFormComponent = () => {
 
   const onSubmit = async (data: any) => {
     try {
+      setLoading(true);
       const response = await axios.post(
-        `${process.env.REACT_APP_BACKEND_URL}admin/auth`,
+        `${process.env.REACT_APP_BACKEND_URL}admin/auth`, // Assuming you updated the backend route
         data
       );
-      toast.success(response.data.message);
-      localStorage.setItem("adminToken", response.data.token);
-      localStorage.setItem("adminId", response.data.adminId);
-      navigate(route.adminDashboard);
+
+      const { message, token, userId, role } = response.data;
+
+      toast.success(message);
+
+      // Store token and userId in localStorage, naming them based on the role
+      if (role === "admin") {
+        localStorage.setItem("adminToken", token);
+        localStorage.setItem("adminId", userId);
+        navigate(route.adminDashboard); // Redirect to the admin dashboard
+      } else if (role === "user") {
+        localStorage.setItem("userToken", token);
+        localStorage.setItem("userId", userId);
+        navigate(route.userDashboard); // Redirect to the user dashboard
+      }
+
       console.log(response.data);
-      console.log(response);
     } catch (error: any) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "An error occurred");
       console.error("Error posting data:", error);
+    } finally {
+      setLoading(false);
     }
   };
+
   return (
     <div>
       {" "}
@@ -85,17 +103,7 @@ const LoginFormComponent = () => {
         </div>
 
         <div className="form-group d-sm-flex align-items-center justify-content-between">
-          <div className="form-check form-switch d-flex align-items-center justify-content-start">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rememberMe"
-              {...register("rememberMe")}
-            />
-            <label className="form-check-label" htmlFor="rememberMe">
-              Remember Password
-            </label>
-          </div>
+          <div className="form-check form-switch d-flex align-items-center justify-content-start"></div>
           <span>
             <Link to="/forgot-password" className="forgot-pass">
               Forgot Password
@@ -107,46 +115,14 @@ const LoginFormComponent = () => {
           className="btn btn-secondary register-btn d-inline-flex justify-content-center align-items-center w-100 btn-block"
           type="submit"
         >
-          Sign In
-          <i className="feather-arrow-right-circle ms-2" />
+          {loading && <ButtonLoader />}
+          {!loading && (
+            <>
+              Sign In
+              <i className="feather-arrow-right-circle ms-2" />
+            </>
+          )}
         </button>
-
-        <div className="form-group">
-          <div className="login-options text-center">
-            <span className="text">Or continue with</span>
-          </div>
-        </div>
-
-        <div className="form-group mb-0">
-          <ul className="social-login d-flex justify-content-center align-items-center">
-            <li className="text-center">
-              <button
-                type="button"
-                className="btn btn-social d-flex align-items-center justify-content-center"
-              >
-                <img
-                  src="assets/img/icons/google.svg"
-                  className="img-fluid"
-                  alt="Google"
-                />
-                <span>Google</span>
-              </button>
-            </li>
-            <li className="text-center">
-              <button
-                type="button"
-                className="btn btn-social d-flex align-items-center justify-content-center"
-              >
-                <img
-                  src="assets/img/icons/facebook.svg"
-                  className="img-fluid"
-                  alt="Facebook"
-                />
-                <span>Facebook</span>
-              </button>
-            </li>
-          </ul>
-        </div>
       </form>
     </div>
   );

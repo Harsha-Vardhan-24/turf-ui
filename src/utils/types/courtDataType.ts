@@ -2,6 +2,7 @@ interface Location {
   country: string;
   city: string;
   location_link: string;
+  embed_link: string;
 }
 
 interface TimeSlot {
@@ -38,10 +39,14 @@ interface Pricing {
   max_guests: number;
   additional_guests: number;
   price_of_additional_guests: string;
+  advance_pay: string;
 }
 
 interface CourtDataType {
   court_id: number;
+  phone_number: string;
+  m_name?: string;
+  email: string;
   court_name: string;
   court_type: string;
   venue_overview: any;

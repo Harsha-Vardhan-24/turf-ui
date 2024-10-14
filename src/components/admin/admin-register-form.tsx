@@ -74,6 +74,33 @@ const AdminRegistrationForm = () => {
       </div>
 
       <div className="form-group">
+        <div className="group-img">
+          <i className="feather-phone" />
+          <input
+            type="tel"
+            className="form-control"
+            placeholder="Phone Number"
+            {...register("phonenumber", {
+              required: "Phone Number is required",
+              pattern: {
+                value: /^[0-9]{10}$/, // Adjust pattern as per your requirements (e.g., 10-digit numbers)
+                message: "Phone Number must be 10 digits",
+              },
+              minLength: {
+                value: 10,
+                message: "Phone Number must be at least 10 digits",
+              },
+              maxLength: {
+                value: 10,
+                message: "Phone Number cannot exceed 10 digits",
+              },
+            })}
+          />
+        </div>
+        {errors.phonenumber && <p>{errors.phonenumber.message as string}</p>}
+      </div>
+
+      <div className="form-group">
         <div className="pass-group group-img">
           <i
             className={`toggle-password ${passwordVisible1 ? "feather-eye" : "feather-eye-off"}`}
@@ -135,43 +162,6 @@ const AdminRegistrationForm = () => {
         Create Account
         <i className="feather-arrow-right-circle ms-2" />
       </button>
-
-      <div className="form-group">
-        <div className="login-options text-center">
-          <span className="text">Or continue with</span>
-        </div>
-      </div>
-
-      <div className="form-group mb-0">
-        <ul className="social-login d-flex justify-content-center align-items-center">
-          <li className="text-center">
-            <button
-              type="button"
-              className="btn btn-social d-flex align-items-center justify-content-center"
-            >
-              <ImageWithBasePath
-                src="assets/img/icons/google.svg"
-                className="img-fluid"
-                alt="Google"
-              />
-              <span>Google</span>
-            </button>
-          </li>
-          <li className="text-center">
-            <button
-              type="button"
-              className="btn btn-social d-flex align-items-center justify-content-center"
-            >
-              <ImageWithBasePath
-                src="assets/img/icons/facebook.svg"
-                className="img-fluid"
-                alt="Facebook"
-              />
-              <span>Facebook</span>
-            </button>
-          </li>
-        </ul>
-      </div>
     </form>
   );
 };

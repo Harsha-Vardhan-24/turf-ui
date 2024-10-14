@@ -14,6 +14,7 @@ import moment from "moment";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import Loader from "../../components/common/Loader";
+import { courtOptions } from "../../utils/courtOptions";
 
 const daysOfWeek = [
   { id: 1, label: "Mon" },
@@ -23,16 +24,6 @@ const daysOfWeek = [
   { id: 5, label: "Fri" },
   { id: 6, label: "Sat" },
   { id: 7, label: "Sun" },
-];
-
-const courtOptions = [
-  "Football",
-  "Cricket",
-  "Badminton",
-  "Basketball",
-  "Tennis",
-  "Swimming",
-  "Squash",
 ];
 
 const hoursOptions = ["1 Hrs", "2 Hrs", "3 Hrs"];
@@ -128,6 +119,8 @@ const AddCourt = () => {
     // Append other form data
     formData.append("courtName", data.courtName);
     formData.append("courtType", data.courtType);
+    formData.append("phoneNumber", data.phoneNumber);
+    formData.append("email", data.email);
     formData.append("venuePrice", JSON.stringify(data.venuePrice));
     formData.append("venueOverview", data.venueOverview);
     formData.append("courtIncludes", JSON.stringify(data.courtIncludes));
@@ -135,7 +128,9 @@ const AddCourt = () => {
     formData.append("amenities", JSON.stringify(data.amenities));
     formData.append("location", JSON.stringify(data.location));
     formData.append("courtAvailability", JSON.stringify(selectedHours));
-    formData.append("userId", userId);
+    if (userId) {
+      formData.append("userId", userId);
+    }
 
     try {
       const response = await axios.post(
@@ -155,10 +150,10 @@ const AddCourt = () => {
     }
 
     // Optionally reset form or navigate
-    reset();
-    setTimeout(() => {
-      navigate(routes.adminDashboard);
-    }, 3000);
+    // reset();
+    // setTimeout(() => {
+    //   navigate(routes.adminDashboard);
+    // }, 3000);
   };
 
   const handleDayChange = (index: number) => {
@@ -231,20 +226,6 @@ const AddCourt = () => {
   return (
     <div>
       <ToastContainer />
-      {/* Breadcrumb */}
-      <div className="breadcrumb breadcrumb-list mb-0">
-        <span className="primary-right-round" />
-        <div className="container">
-          <h1 className="text-white">List Your Court</h1>
-          <ul>
-            <li>
-              <Link to={routes.adminDashboard}>Home</Link>
-            </li>
-            <li>List Your Court</li>
-          </ul>
-        </div>
-      </div>
-      {/* /Breadcrumb */}
       {/* Page Content */}
       {loading ? (
         <Loader />
@@ -503,6 +484,39 @@ const AddCourt = () => {
                                 errors.venuePrice?.priceOfAdditionalGuests
                                   ?.message as string
                               }
+                            </p>
+                          </div>
+                          <div className="col-lg-6 col-md-6">
+                            <div className="input-space mb-0">
+                              <label
+                                htmlFor="advancePay"
+                                className="form-label"
+                              >
+                                Advance Payment
+                              </label>
+                              <input
+                                {...register("venuePrice.advancePay", {
+                                  required: "Advance Payment is required",
+                                  min: {
+                                    value: 25,
+                                    message:
+                                      "Advance Payment must be at least 25",
+                                  },
+                                  max: {
+                                    value: 100,
+                                    message:
+                                      "Advance Payment must be at most 100",
+                                  },
+                                })}
+                                type="number" // Using number type for better control over min/max values
+                                className="form-control"
+                                id="advancePay"
+                                placeholder="Enter Advance Payment"
+                                defaultValue={25} // Setting the default value to 25
+                              />
+                            </div>
+                            <p className="text-danger">
+                              {errors.venuePrice?.advancePay?.message as string}
                             </p>
                           </div>
                         </div>
@@ -1675,20 +1689,6 @@ const AddCourt = () => {
                                 </div>
                                 {/* /Sunday */}
                               </div>
-                              <div className="save-changes text-sm-end">
-                                <Link
-                                  to="#"
-                                  className="btn btn-primary reset-profile"
-                                >
-                                  Reset
-                                </Link>
-                                <Link
-                                  to="#"
-                                  className="btn btn-secondary save-profile"
-                                >
-                                  Save Change
-                                </Link>
-                              </div>
                             </div>
                           </div>
                         </div>
@@ -2201,6 +2201,7 @@ const AddCourt = () => {
                                 Country
                               </label>
                               <input
+                                readOnly
                                 {...register("location.country", {
                                   required: "Country is required",
                                 })}
@@ -2208,6 +2209,7 @@ const AddCourt = () => {
                                 className="form-control"
                                 id="country"
                                 placeholder="Enter Country"
+                                defaultValue="India"
                               />
                             </div>
                             <p className="text-danger">
@@ -2233,7 +2235,60 @@ const AddCourt = () => {
                               {errors.location?.city?.message as string}
                             </p>
                           </div>
-                          <div className="col-12">
+                          <div className="col-lg-6 col-md-6">
+                            <div className="input-space">
+                              <label
+                                htmlFor="phone-number"
+                                className="form-label"
+                              >
+                                Phone Number <span>*</span>
+                              </label>
+                              <input
+                                {...register("phoneNumber", {
+                                  required: "Phone number is required",
+                                  pattern: {
+                                    value: /^[0-9]{10}$/, // Regular expression for 10 digit phone numbers
+                                    message:
+                                      "Please enter a valid 10-digit phone number",
+                                  },
+                                })}
+                                type="text"
+                                className="form-control"
+                                id="phone-number"
+                                placeholder="Enter Phone Number"
+                              />
+                            </div>
+                            <p className="text-danger">
+                              {errors.phoneNumber?.message as string}
+                            </p>
+                          </div>
+
+                          <div className="col-lg-6 col-md-6">
+                            <div className="input-space">
+                              <label htmlFor="email" className="form-label">
+                                Email <span>*</span>
+                              </label>
+                              <input
+                                {...register("email", {
+                                  required: "Email is required",
+                                  pattern: {
+                                    value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, // Regular expression for a valid email address
+                                    message:
+                                      "Please enter a valid email address",
+                                  },
+                                })}
+                                type="email"
+                                className="form-control"
+                                id="email"
+                                placeholder="Enter Email"
+                              />
+                            </div>
+                            <p className="text-danger">
+                              {errors.email?.message as string}
+                            </p>
+                          </div>
+
+                          <div className="col-lg-6 col-md-6">
                             <div className="input-space">
                               <label
                                 htmlFor="street-address"
@@ -2255,22 +2310,30 @@ const AddCourt = () => {
                               {errors.location?.locationLink?.message as string}
                             </p>
                           </div>
+
+                          <div className="col-lg-6 col-md-6">
+                            <div className="input-space">
+                              <label
+                                htmlFor="google-maps-link"
+                                className="form-label"
+                              >
+                                Google Maps Embed Link <span>*</span>
+                              </label>
+                              <input
+                                {...register("location.embedLink", {
+                                  required: "Google Maps Link is required",
+                                })}
+                                type="text"
+                                className="form-control"
+                                id="google-maps-link"
+                                placeholder="Enter Google Maps Embed Link"
+                              />
+                            </div>
+                            <p className="text-danger">
+                              {errors.location?.locationLink?.message as string}
+                            </p>
+                          </div>
                         </div>
-                        {/* <div className="col-12">
-                        <label htmlFor="name" className="form-label">
-                          Map
-                        </label>
-                        <div className="google-maps">
-                          <iframe
-                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2967.8862835683544!2d-73.98256668525309!3d41.93829486962529!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89dd0ee3286615b7%3A0x42bfa96cc2ce4381!2s132%20Kingston%20St%2C%20Kingston%2C%20NY%2012401%2C%20USA!5e0!3m2!1sen!2sin!4v1670922579281!5m2!1sen!2sin"
-                            height={445}
-                            style={{ border: 0 }}
-                            allowFullScreen
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                          />
-                        </div>
-                      </div> */}
                       </div>
                     </div>
                   </div>
